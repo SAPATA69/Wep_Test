@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chart Replay — Flask Skeleton</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ TOP TOOLBAR ============ -->
+  <div class="top-toolbar">
+    <div class="tb-group">
+      <div class="brand-dot" data-icon="logoMark"></div>
+      <div class="symbol-pill">AUDUSD <span class="caret">▾</span></div>
+      <div class="icon-btn" data-icon="plus" title="เพิ่ม Symbol"></div>
+    </div>
+
+    <div class="tb-group">
+      <div class="tf-tabs">
+        <div class="tf-tab" data-tf="1m">1m</div>
+        <div class="tf-tab" data-tf="5m">5m</div>
+        <div class="tf-tab" data-tf="15m">15m</div>
+        <div class="tf-tab" data-tf="30m">30m</div>
+        <div class="tf-tab active" data-tf="1h">1h</div>
+        <div class="tf-tab" data-tf="4h">4h</div>
+        <div class="tf-tab" data-tf="D">D</div>
+      </div>
+      <div class="divider-v"></div>
+      <div class="icon-btn" data-icon="chartType" title="ประเภทกราฟ"></div>
+    </div>
+
+    <div class="tb-group grow">
+      <div class="text-btn"><span data-icon="indicators"></span>Indicators</div>
+      <div class="icon-btn" data-icon="layoutGrid" title="Layout กราฟ"></div>
+      <div class="text-btn"><span data-icon="alert"></span>Alert</div>
+      <div class="text-btn replay-btn" id="replayToggleBtn"><span data-icon="replay"></span>Replay</div>
+      <div class="icon-btn" data-icon="undo" title="Undo"></div>
+      <div class="icon-btn" data-icon="redo" title="Redo"></div>
+    </div>
+
+    <div class="tb-group">
+      <div class="icon-btn" data-icon="screenshot" title="Screenshot"></div>
+      <div class="icon-btn" data-icon="fullscreen" title="Fullscreen"></div>
+      <button class="btn-solid">Trade</button>
+      <button class="btn-solid btn-primary">Publish</button>
+    </div>
+  </div>
+
+  <!-- ============ LEFT TOOLBAR (เครื่องมือวาด) ============ -->
+  <div class="left-toolbar">
+    <div class="lt-group">
+      <div class="lt-btn active" data-tool="cursor" data-icon="cursor" title="Cursor / Crosshair (Esc)"></div>
+      <div class="lt-btn" data-tool="trendline" data-icon="trendline" title="Trend Line"></div>
+      <div class="lt-btn" data-tool="ray" data-icon="ray" title="Ray — ต่อขยายไปทางขวาเท่านั้น"></div>
+      <div class="lt-btn" data-tool="extendedLine" data-icon="extendedLine" title="Extended Line — ต่อขยายทั้งสองทาง"></div>
+      <div class="lt-btn" data-tool="horizontal" data-icon="horizontalLine" title="Horizontal Line"></div>
+      <div class="lt-btn" data-tool="horizontalRay" data-icon="horizontalRay" title="Horizontal Ray"></div>
+      <div class="lt-btn" data-tool="verticalLine" data-icon="verticalLine" title="Vertical Line"></div>
+      <div class="lt-btn" data-tool="crossLine" data-icon="crossLine" title="Cross Line"></div>
+      <div class="lt-btn" data-tool="fibonacci" data-icon="fibRetracement" title="Fibonacci Retracement"></div>
+      <div class="lt-btn" data-tool="gann" data-icon="gannBox" title="Gann / Pattern (เร็วๆ นี้)"></div>
+      <div class="lt-btn" data-tool="text" data-icon="textTool" title="Text"></div>
+      <div class="lt-btn" data-tool="emoji" data-icon="emoji" title="Icons / Emoji (เร็วๆ นี้)"></div>
+      <div class="lt-btn" data-tool="measure" data-icon="measure" title="Measure (วัดระยะ/ราคา)"></div>
+      <div class="lt-btn" data-tool="zoom" data-icon="zoom" title="Zoom (เร็วๆ นี้)"></div>
+      <div class="lt-btn" data-toggle="magnet" data-icon="magnet" title="Magnet — สแนปเข้าจุดแท่งเทียน"></div>
+      <div class="lt-btn" data-toggle="lock" data-icon="lock" title="Lock — ล็อกเส้นทั้งหมดไม่ให้แก้ไข"></div>
+      <div class="lt-btn" data-toggle="eye" data-icon="eye" title="Show / Hide drawings"></div>
+      <div class="lt-btn" data-action="trash" data-icon="trash" title="ลบเส้นที่เลือก (หรือลบทั้งหมดถ้าไม่ได้เลือก)"></div>
+    </div>
+    <div class="lt-group">
+      <div class="lt-btn" data-icon="star" title="Favorites"></div>
+    </div>
+  </div>
+
+  <!-- ============ CHART AREA ============ -->
+  <div class="chart-area" id="chartArea">
+    <canvas id="chartCanvas"></canvas>
+    <canvas id="drawingCanvas"></canvas>
+    <div class="symbol-watermark">
+      <strong>Australian Dollar / U.S. Dollar · 1h</strong>
+      <span class="ohlc-pill" id="ohlcReadout">O -- H -- L -- C --</span>
+    </div>
+
+    <!-- แถบควบคุม Replay: ซ่อนอยู่ก่อน จะโผล่มาเมื่อกดปุ่ม Replay -->
+    <div class="replay-bar" id="replayBar">
+      <span class="grip">⠿</span>
+      <div class="replay-play" id="replayPlayBtn" data-icon="play"></div>
+      <input type="range" class="replay-slider" min="0" max="100" value="35">
+      <span class="replay-jump" data-icon="jumpNext" title="Jump to next"></span>
+      <div class="replay-toggle"></div>
+      <div class="replay-speed">1hr <span style="font-size:9px;">▾</span></div>
+    </div>
+
+    <!-- Panel ตั้งค่า Fibonacci: แสดงเมื่อเลือกเส้น Fibonacci ด้วย cursor -->
+    <div class="fib-panel" id="fibPanel">
+      <div class="fib-panel-header">
+        <span>Fibonacci Settings</span>
+        <span class="fib-panel-close" id="fibPanelClose">✕</span>
+      </div>
+
+      <div class="fib-panel-options">
+        <label>
+          ป้ายกำกับ
+          <select id="fibLabelPosition">
+            <option value="left">ซ้าย</option>
+            <option value="right">ขวา</option>
+            <option value="center">กลาง</option>
+          </select>
+        </label>
+        <label>
+          รูปแบบค่า
+          <select id="fibValueMode">
+            <option value="decimal">0.618</option>
+            <option value="percent">61.8%</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="fib-levels-list" id="fibLevelsList"><!-- แถวระดับ Fibo แต่ละอันถูกสร้างด้วย JS --></div>
+
+      <button class="fib-add-level-btn" id="fibAddLevelBtn">+ เพิ่มระดับ</button>
+    </div>
+
+    <!-- Panel ตั้งค่าเส้น: Trend Line / Ray / Extended Line / Horizontal Ray / Vertical / Cross -->
+    <div class="line-panel" id="linePanel">
+      <div class="line-panel-header">
+        <span>Line Settings</span>
+        <span class="line-panel-close" id="linePanelClose">✕</span>
+      </div>
+
+      <div class="line-panel-row">
+        <label>สี</label>
+        <input type="color" id="lineColorInput" value="#2962ff">
+      </div>
+
+      <div class="line-panel-row">
+        <label>ความหนา</label>
+        <select id="lineWidthInput">
+          <option value="1">1px</option>
+          <option value="2">2px</option>
+          <option value="3">3px</option>
+          <option value="4">4px</option>
+        </select>
+      </div>
+
+      <div class="line-panel-row">
+        <label>สไตล์เส้น</label>
+        <select id="lineStyleInput">
+          <option value="solid">เส้นทึบ</option>
+          <option value="dashed">เส้นประ</option>
+          <option value="dotted">เส้นจุด</option>
+        </select>
+      </div>
+
+      <div class="line-panel-row" id="lineExtendLeftRow">
+        <label>Extend Left</label>
+        <input type="checkbox" id="lineExtendLeftInput">
+      </div>
+
+      <div class="line-panel-row" id="lineExtendRightRow">
+        <label>Extend Right</label>
+        <input type="checkbox" id="lineExtendRightInput">
+      </div>
+
+      <div class="line-panel-row" id="lineShowInfoRow">
+        <label>Info Line</label>
+        <input type="checkbox" id="lineShowInfoInput">
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PRICE SCALE (ขวา) ============ -->
+  <div class="price-scale" id="priceScale"></div>
+
+  <!-- ============ EDGE ICON RAIL (ริมขวาสุด) ============ -->
+  <div class="edge-rail">
+    <div class="edge-btn" data-icon="watchlist" title="Watchlist"><span class="badge">25</span></div>
+    <div class="edge-btn" data-icon="notifications" title="Notifications"></div>
+    <div class="edge-btn" data-icon="layers" title="Layers"></div>
+    <div class="edge-btn" data-icon="chat" title="Chat"></div>
+    <div class="edge-spacer"></div>
+    <div class="edge-btn" data-icon="alertsTriangle" title="Alerts"></div>
+    <div class="edge-btn" data-icon="calendar" title="Calendar"><span class="badge badge-blue">99+</span></div>
+    <div class="edge-btn" data-icon="apps" title="Apps"></div>
+    <div class="edge-btn" data-icon="help" title="Help"></div>
+  </div>
+
+  <!-- ============ BOTTOM BAR ============ -->
+  <div class="bottom-bar">
+    <div class="range-tabs">
+      <div class="range-tab">1D</div>
+      <div class="range-tab">5D</div>
+      <div class="range-tab">1M</div>
+      <div class="range-tab">3M</div>
+      <div class="range-tab">6M</div>
+      <div class="range-tab">YTD</div>
+      <div class="range-tab">1Y</div>
+      <div class="range-tab">5Y</div>
+      <div class="range-tab active">All</div>
+    </div>
+    <div class="bottom-right"><span id="clock">--:--:-- UTC+7</span></div>
+  </div>
+
+</div>
+
+<!-- ลำดับการโหลดสำคัญ: icons -> chart -> drawings -> app -->
+<script src="{{ url_for('static', filename='js/icons.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+<script src="{{ url_for('static', filename='js/drawings.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
