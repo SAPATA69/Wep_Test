@@ -41,12 +41,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     containerEl: document.getElementById('chartArea'),
   });
 
+  // ---- 3.0) เริ่มต้นแถบเครื่องมือซ้าย (ปุ่ม + tooltip + เมนูย่อย) ----
+  SidebarModule.init({
+    containerEl: document.getElementById('sidebarToolsContainer'),
+  });
+
   // เมื่อ drawings.js เปลี่ยนเครื่องมือเอง (เช่น วาง text เสร็จแล้วสลับกลับ cursor อัตโนมัติ)
-  // ให้ sync ปุ่มบน toolbar ให้ตรงกันด้วย
+  // ให้ sidebar sync ปุ่ม active + ไอคอนหลักของกลุ่มให้ตรงกันด้วย
   DrawingsModule.onToolChange((tool) => {
-    document.querySelectorAll('.lt-btn[data-tool]').forEach(b => {
-      b.classList.toggle('active', b.getAttribute('data-tool') === tool);
-    });
+    SidebarModule.setActiveTool(tool);
   });
 
   // ---- 3.1) Panel ตั้งค่า Fibonacci (Dynamic Levels) ----
@@ -58,11 +61,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   const fibPanelClose = document.getElementById('fibPanelClose');
 
   // เปิด/ปิด panel ทุกครั้งที่การเลือกเส้นเปลี่ยน (มาจาก drawings.js)
+  const LINE_FAMILY_TYPES = ['trendline', 'horizontal', 'horizontalRay', 'verticalLine', 'crossLine'];
+  const SHAPE_TYPES = ['rectangle', 'ellipse', 'triangle'];
   DrawingsModule.onSelectionChange((drawing) => {
+    fibPanel.classList.remove('visible');
+    linePanel.classList.remove('visible');
+    shapePanel.classList.remove('visible');
+    positionPanel.classList.remove('visible');
+
     if (drawing && drawing.type === 'fibonacci') {
       showFibPanel(drawing);
-    } else {
-      fibPanel.classList.remove('visible');
+    } else if (drawing && LINE_FAMILY_TYPES.includes(drawing.type)) {
+      showLinePanel(drawing);
+    } else if (drawing && SHAPE_TYPES.includes(drawing.type)) {
+      showShapePanel(drawing);
+    } else if (drawing && drawing.type === 'position') {
+      showPositionPanel(drawing);
     }
   });
 
@@ -134,6 +148,280 @@ document.addEventListener('DOMContentLoaded', async () => {
     fibPanel.classList.remove('visible');
   });
 
+  // ---- 3.2) Panel ตั้งค่าเส้น (Trend Line / Ray / Extended Line / H-Ray / Vertical / Cross) ----
+  const linePanel = document.getElementById('linePanel');
+  const lineColorInput = document.getElementById('lineColorInput');
+  const lineWidthInput = document.getElementById('lineWidthInput');
+  const lineStyleInput = document.getElementById('lineStyleInput');
+  const lineExtendLeftInput = document.getElementById('lineExtendLeftInput');
+  const lineExtendRightInput = document.getElementById('lineExtendRightInput');
+  const lineShowInfoInput = document.getElementById('lineShowInfoInput');
+  const lineExtendLeftRow = document.getElementById('lineExtendLeftRow');
+  const lineExtendRightRow = document.getElementById('lineExtendRightRow');
+  const lineShowInfoRow = document.getElementById('lineShowInfoRow');
+  const linePanelClose = document.getElementById('linePanelClose');
+
+  function showLinePanel(drawing) {
+    linePanel.classList.add('visible');
+    lineColorInput.value = drawing.color || '#2962ff';
+    lineWidthInput.value = String(drawing.lineWidth || 2);
+    lineStyleInput.value = drawing.lineStyle || 'solid';
+
+    // Extend Left/Right และ Info Line ใช้ได้เฉพาะ Trend Line (+ variants) เท่านั้น
+    // เส้นแนวนอน/แนวตั้ง/กากบาท ไม่มีทิศทางให้ extend แบบนี้ เลยซ่อนแถวไว้
+    const isTrendline = drawing.type === 'trendline';
+    lineExtendLeftRow.classList.toggle('hidden-row', !isTrendline);
+    lineExtendRightRow.classList.toggle('hidden-row', !isTrendline);
+    lineShowInfoRow.classList.toggle('hidden-row', !isTrendline);
+    if (isTrendline) {
+      lineExtendLeftInput.checked = !!drawing.extendLeft;
+      lineExtendRightInput.checked = !!drawing.extendRight;
+      lineShowInfoInput.checked = !!drawing.showInfo;
+    }
+  }
+
+  lineColorInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setLineColor(d.id, e.target.value);
+  });
+
+  lineWidthInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setLineWidth(d.id, parseInt(e.target.value, 10));
+  });
+
+  lineStyleInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setLineStyle(d.id, e.target.value);
+  });
+
+  lineExtendLeftInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setLineExtend(d.id, { left: e.target.checked });
+  });
+
+  lineExtendRightInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setLineExtend(d.id, { right: e.target.checked });
+  });
+
+  lineShowInfoInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setLineShowInfo(d.id, e.target.checked);
+  });
+
+  linePanelClose.addEventListener('click', () => {
+    linePanel.classList.remove('visible');
+  });
+
+  // ---- 3.3) Panel ตั้งค่ารูปทรง (Rectangle / Circle / Ellipse / Triangle) ----
+  const shapePanel = document.getElementById('shapePanel');
+  const shapeBorderColorInput = document.getElementById('shapeBorderColorInput');
+  const shapeFillColorInput = document.getElementById('shapeFillColorInput');
+  const shapeFillOpacityInput = document.getElementById('shapeFillOpacityInput');
+  const shapeLineStyleInput = document.getElementById('shapeLineStyleInput');
+  const shapeExtendLeftInput = document.getElementById('shapeExtendLeftInput');
+  const shapeExtendRightInput = document.getElementById('shapeExtendRightInput');
+  const shapeExtendLeftRow = document.getElementById('shapeExtendLeftRow');
+  const shapeExtendRightRow = document.getElementById('shapeExtendRightRow');
+  const shapePanelClose = document.getElementById('shapePanelClose');
+
+  function showShapePanel(drawing) {
+    shapePanel.classList.add('visible');
+    shapeBorderColorInput.value = drawing.color || '#2962ff';
+    shapeFillColorInput.value = drawing.fillColor || '#2962ff';
+    shapeFillOpacityInput.value = Math.round((drawing.fillOpacity != null ? drawing.fillOpacity : 0.15) * 100);
+    shapeLineStyleInput.value = drawing.lineStyle || 'solid';
+
+    // Extend Left/Right (โซน Demand/Supply) ใช้ได้เฉพาะ Rectangle เท่านั้น
+    const isRectangle = drawing.type === 'rectangle';
+    shapeExtendLeftRow.classList.toggle('hidden-row', !isRectangle);
+    shapeExtendRightRow.classList.toggle('hidden-row', !isRectangle);
+    if (isRectangle) {
+      shapeExtendLeftInput.checked = !!drawing.extendLeft;
+      shapeExtendRightInput.checked = !!drawing.extendRight;
+    }
+  }
+
+  shapeBorderColorInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setShapeBorderColor(d.id, e.target.value);
+  });
+
+  shapeFillColorInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setShapeFillColor(d.id, e.target.value);
+  });
+
+  shapeFillOpacityInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setShapeFillOpacity(d.id, parseInt(e.target.value, 10) / 100);
+  });
+
+  shapeLineStyleInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setShapeLineStyle(d.id, e.target.value);
+  });
+
+  shapeExtendLeftInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setShapeExtend(d.id, { left: e.target.checked });
+  });
+
+  shapeExtendRightInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setShapeExtend(d.id, { right: e.target.checked });
+  });
+
+  shapePanelClose.addEventListener('click', () => {
+    shapePanel.classList.remove('visible');
+  });
+
+  // ---- 3.4) Panel ตั้งค่า Long/Short Position ----
+  const positionPanel = document.getElementById('positionPanel');
+  const positionDirectionInput = document.getElementById('positionDirectionInput');
+  const positionEntryPriceInput = document.getElementById('positionEntryPriceInput');
+  const positionTpPriceInput = document.getElementById('positionTpPriceInput');
+  const positionSlPriceInput = document.getElementById('positionSlPriceInput');
+  const positionTpColorInput = document.getElementById('positionTpColorInput');
+  const positionSlColorInput = document.getElementById('positionSlColorInput');
+  const positionFillOpacityInput = document.getElementById('positionFillOpacityInput');
+  const positionBoxWidthInput = document.getElementById('positionBoxWidthInput');
+  const positionAccountSizeInput = document.getElementById('positionAccountSizeInput');
+  const positionRiskModeInput = document.getElementById('positionRiskModeInput');
+  const positionRiskPercentInput = document.getElementById('positionRiskPercentInput');
+  const positionFixedRiskInput = document.getElementById('positionFixedRiskInput');
+  const positionRiskPercentRow = document.getElementById('positionRiskPercentRow');
+  const positionFixedRiskRow = document.getElementById('positionFixedRiskRow');
+  const positionContractMultiplierInput = document.getElementById('positionContractMultiplierInput');
+  const positionLotStepInput = document.getElementById('positionLotStepInput');
+  const positionMaxLeverageInput = document.getElementById('positionMaxLeverageInput');
+  const positionPanelClose = document.getElementById('positionPanelClose');
+
+  function showPositionPanel(drawing) {
+    positionPanel.classList.add('visible');
+    positionDirectionInput.value = drawing.direction || 'long';
+
+    // แปลง yFrac ของแต่ละจุดกลับเป็นราคาจริง เพื่อโชว์ในช่องพิมพ์
+    const canvasEl = document.getElementById('drawingCanvas');
+    const h = canvasEl.clientHeight;
+    const entryPrice = ChartModule.priceAtY(drawing.points[0].yFrac * h);
+    const tpPrice = ChartModule.priceAtY(drawing.points[1].yFrac * h);
+    const slPrice = ChartModule.priceAtY(drawing.points[2].yFrac * h);
+    if (entryPrice != null) positionEntryPriceInput.value = entryPrice.toFixed(5);
+    if (tpPrice != null) positionTpPriceInput.value = tpPrice.toFixed(5);
+    if (slPrice != null) positionSlPriceInput.value = slPrice.toFixed(5);
+
+    positionTpColorInput.value = drawing.tpColor || '#26a69a';
+    positionSlColorInput.value = drawing.slColor || '#ef5350';
+    positionFillOpacityInput.value = Math.round((drawing.fillOpacity != null ? drawing.fillOpacity : 0.18) * 100);
+    positionBoxWidthInput.value = Math.round((drawing.boxWidthFrac != null ? drawing.boxWidthFrac : 0.18) * 100);
+    positionAccountSizeInput.value = drawing.accountSize != null ? drawing.accountSize : 10000;
+
+    const riskMode = drawing.riskMode || 'percent';
+    positionRiskModeInput.value = riskMode;
+    positionRiskPercentInput.value = drawing.riskPercent != null ? drawing.riskPercent : 1;
+    positionFixedRiskInput.value = drawing.fixedRiskAmount != null ? drawing.fixedRiskAmount : 100;
+    // โชว์แค่ช่องที่ตรงกับโหมดที่เลือกอยู่ (% หรือ $ คงที่)
+    positionRiskPercentRow.classList.toggle('hidden-row', riskMode !== 'percent');
+    positionFixedRiskRow.classList.toggle('hidden-row', riskMode !== 'fixed');
+
+    positionContractMultiplierInput.value = drawing.contractMultiplier != null ? drawing.contractMultiplier : 1;
+    positionLotStepInput.value = drawing.lotStep != null ? drawing.lotStep : 0.01;
+    positionMaxLeverageInput.value = drawing.maxLeverage != null ? drawing.maxLeverage : 20;
+  }
+
+  positionDirectionInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setPositionDirection(d.id, e.target.value);
+  });
+
+  positionEntryPriceInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    const val = parseFloat(e.target.value);
+    if (d && !Number.isNaN(val)) DrawingsModule.setPositionEntryPrice(d.id, val);
+  });
+
+  positionTpPriceInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    const val = parseFloat(e.target.value);
+    if (d && !Number.isNaN(val)) DrawingsModule.setPositionTpPrice(d.id, val);
+  });
+
+  positionSlPriceInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    const val = parseFloat(e.target.value);
+    if (d && !Number.isNaN(val)) DrawingsModule.setPositionSlPrice(d.id, val);
+  });
+
+  positionTpColorInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setPositionTpColor(d.id, e.target.value);
+  });
+
+  positionSlColorInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setPositionSlColor(d.id, e.target.value);
+  });
+
+  positionFillOpacityInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setPositionFillOpacity(d.id, parseInt(e.target.value, 10) / 100);
+  });
+
+  positionBoxWidthInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setPositionBoxWidth(d.id, parseInt(e.target.value, 10) / 100);
+  });
+
+  positionAccountSizeInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    const val = parseFloat(e.target.value);
+    if (d && !Number.isNaN(val)) DrawingsModule.setPositionAccountSize(d.id, val);
+  });
+
+  positionRiskModeInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (!d) return;
+    DrawingsModule.setPositionRiskMode(d.id, e.target.value);
+    positionRiskPercentRow.classList.toggle('hidden-row', e.target.value !== 'percent');
+    positionFixedRiskRow.classList.toggle('hidden-row', e.target.value !== 'fixed');
+  });
+
+  positionRiskPercentInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    const val = parseFloat(e.target.value);
+    if (d && !Number.isNaN(val)) DrawingsModule.setPositionRiskPercent(d.id, val);
+  });
+
+  positionFixedRiskInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    const val = parseFloat(e.target.value);
+    if (d && !Number.isNaN(val)) DrawingsModule.setPositionFixedRiskAmount(d.id, val);
+  });
+
+  positionContractMultiplierInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    const val = parseFloat(e.target.value);
+    if (d && !Number.isNaN(val)) DrawingsModule.setPositionContractMultiplier(d.id, val);
+  });
+
+  positionLotStepInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    const val = parseFloat(e.target.value);
+    if (d && !Number.isNaN(val)) DrawingsModule.setPositionLotStep(d.id, val);
+  });
+
+  positionMaxLeverageInput.addEventListener('input', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    const val = parseFloat(e.target.value);
+    if (d && !Number.isNaN(val)) DrawingsModule.setPositionMaxLeverage(d.id, val);
+  });
+
+  positionPanelClose.addEventListener('click', () => {
+    positionPanel.classList.remove('visible');
+  });
+
   // ---- 4) ปุ่ม Replay: เปิด/ปิดแถบควบคุมลอยเหนือกราฟ ----
   const replayBtn = document.getElementById('replayToggleBtn');
   const replayBar = document.getElementById('replayBar');
@@ -168,49 +456,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ================================================================
   // 7) ปุ่มเครื่องมือวาดฝั่งซ้าย
-  //    แบ่งเป็น 3 กลุ่มตาม data-attribute ที่กำหนดไว้ใน index.html:
-  //    - data-tool     : เครื่องมือวาด เลือกได้ทีละอัน (mutually exclusive)
-  //    - data-toggle   : ปุ่มเปิด/ปิด อิสระจากกัน (lock, eye, magnet)
-  //    - data-action   : ปุ่มกดแล้วทำงานทันที ไม่ใช่โหมด (trash)
+  //    ย้ายไปอยู่ใน sidebar.js ทั้งหมดแล้ว (รองรับ tooltip + เมนูย่อย)
+  //    ดู SidebarModule.init() ที่เรียกไว้ด้านบน (ขั้นตอน 3.0)
   // ================================================================
-
-  // 7.1 กลุ่มเครื่องมือวาด (คลิกแล้วเลือกทีละอัน)
-  document.querySelectorAll('.lt-btn[data-tool]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.lt-btn[data-tool]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      DrawingsModule.setTool(btn.getAttribute('data-tool'));
-    });
-  });
-
-  // 7.2 กลุ่มปุ่ม toggle (lock / eye / magnet)
-  document.querySelectorAll('.lt-btn[data-toggle]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      btn.classList.toggle('active');
-      const isOn = btn.classList.contains('active');
-      const toggle = btn.getAttribute('data-toggle');
-
-      if (toggle === 'lock') {
-        DrawingsModule.setLocked(isOn);
-      } else if (toggle === 'eye') {
-        // ปุ่มนี้แสดงสถานะ "ซ่อนเส้นทั้งหมด" ตอนกด active
-        DrawingsModule.setVisible(!isOn);
-      } else if (toggle === 'magnet') {
-        DrawingsModule.setMagnet(isOn);
-      }
-    });
-  });
-
-  // 7.3 ปุ่ม trash: ลบเส้นที่เลือกอยู่ ถ้าไม่มีอะไรเลือกอยู่ให้ถามก่อนลบทั้งหมด
-  document.querySelectorAll('.lt-btn[data-action="trash"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const removedSomething = DrawingsModule.removeSelected();
-      if (!removedSomething) {
-        if (confirm('ยังไม่ได้เลือกเส้นไหนไว้ — ต้องการลบเส้น/เครื่องมือวาดทั้งหมดบนกราฟเลยไหม?')) {
-          DrawingsModule.clearAll();
-        }
-      }
-    });
-  });
 
 });

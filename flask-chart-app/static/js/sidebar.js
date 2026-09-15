@@ -34,10 +34,12 @@ const SidebarModule = (() => {
     container = containerEl;
 
     // สร้าง reverse lookup ไว้ล่วงหน้า เพื่อให้รู้ว่า tool ไหนเป็นของกลุ่มไหน
+    // (ข้าม sectionHeader ที่เป็นแค่หัวข้อคั่นหมวดในเมนู ไม่ใช่เครื่องมือจริง)
     SIDEBAR_GROUPS.forEach(group => {
       if (group.type === 'group') {
-        group.tools.forEach(t => { toolToGroupId[t.tool] = group.id; });
-        lastUsedTool[group.id] = group.tools[0].tool; // ค่าเริ่มต้น = ตัวแรกในลิสต์
+        const actualTools = group.tools.filter(t => !t.sectionHeader);
+        actualTools.forEach(t => { toolToGroupId[t.tool] = group.id; });
+        lastUsedTool[group.id] = actualTools[0].tool; // ค่าเริ่มต้น = ตัวแรกในลิสต์ (ไม่นับหัวข้อคั่น)
       } else if (group.type === 'tool') {
         toolToGroupId[group.tool] = group.id;
       }
@@ -161,7 +163,7 @@ const SidebarModule = (() => {
 
     if (group.type === 'group') {
       // เรียกเครื่องมือล่าสุดของหมวดนี้ทันที ไม่ต้องเปิดเมนูย่อย
-      const tool = lastUsedTool[group.id] || group.tools[0].tool;
+      const tool = lastUsedTool[group.id] || group.tools.find(t => !t.sectionHeader).tool;
       applyTool(tool);
       setActiveTool(tool);
       return;
@@ -181,18 +183,18 @@ const SidebarModule = (() => {
 
   // ---- ส่งคำสั่งจริงไปยัง DrawingsModule ----
   function applyTool(tool) {
-    if (window.DrawingsModule) DrawingsModule.setTool(tool);
+    if (typeof DrawingsModule !== 'undefined') DrawingsModule.setTool(tool);
   }
 
   function applyToggle(toggle, isOn) {
-    if (!window.DrawingsModule) return;
+    if (typeof DrawingsModule === 'undefined') return;
     if (toggle === 'lock') DrawingsModule.setLocked(isOn);
     else if (toggle === 'eye') DrawingsModule.setVisible(!isOn); // active = ซ่อนอยู่
     else if (toggle === 'magnet') DrawingsModule.setMagnet(isOn);
   }
 
   function applyAction(action) {
-    if (!window.DrawingsModule) return;
+    if (typeof DrawingsModule === 'undefined') return;
     if (action === 'trash') {
       const removedSomething = DrawingsModule.removeSelected();
       if (!removedSomething) {
@@ -220,6 +222,14 @@ const SidebarModule = (() => {
     submenuEl.innerHTML = '';
 
     group.tools.forEach(t => {
+      if (t.sectionHeader) {
+        const header = document.createElement('div');
+        header.className = 'sidebar-submenu-header';
+        header.textContent = t.sectionHeader;
+        submenuEl.appendChild(header);
+        return;
+      }
+
       const item = document.createElement('div');
       item.className = 'sidebar-submenu-item';
       if (lastUsedTool[group.id] === t.tool) item.classList.add('active');

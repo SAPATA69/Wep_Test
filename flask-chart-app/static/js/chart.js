@@ -115,6 +115,16 @@ const ChartModule = (() => {
     return lastTopPrice - (yPixel / h) * range;
   }
 
+  // ---- สมการย้อนกลับของ priceAtY: รับราคา คืนตำแหน่ง y (พิกเซล) ----
+  // ใช้ตอนผู้ใช้พิมพ์ราคา Entry/TP/SL ตรงๆ ในหน้าตั้งค่า (แทนที่จะลากบนกราฟอย่างเดียว)
+  function yForPrice(price) {
+    if (lastTopPrice == null || !canvas) return null;
+    const h = canvas.clientHeight;
+    const range = lastTopPrice - lastBottomPrice;
+    if (range === 0) return null;
+    return ((lastTopPrice - price) / range) * h;
+  }
+
   // ---- 4) วาด tick ราคาบน price scale (คอลัมน์ขวา) ----
   function renderPriceScale(top, bottom, lastCandle) {
     priceScaleEl.innerHTML = '';
@@ -178,5 +188,5 @@ const ChartModule = (() => {
     return candles;
   }
 
-  return { init, draw, getCandles, loadCandles, priceAtY };
+  return { init, draw, getCandles, loadCandles, priceAtY, yForPrice };
 })();

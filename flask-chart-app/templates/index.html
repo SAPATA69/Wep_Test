@@ -50,27 +50,10 @@
   </div>
 
   <!-- ============ LEFT TOOLBAR (เครื่องมือวาด) ============ -->
+  <!-- ปุ่มทั้งหมดถูกสร้างด้วย JS จาก sidebar-config.js (ดู sidebar.js)
+       เพื่อรองรับ Tooltip หน่วงเวลา + เมนูย่อย (Flyout) + จำเครื่องมือล่าสุด -->
   <div class="left-toolbar">
-    <div class="lt-group">
-      <div class="lt-btn active" data-tool="cursor" data-icon="cursor" title="Cursor / Crosshair (Esc)"></div>
-      <div class="lt-btn" data-tool="trendline" data-icon="trendline" title="Trend Line"></div>
-      <div class="lt-btn" data-tool="ray" data-icon="ray" title="Ray — ต่อขยายไปทางขวาเท่านั้น"></div>
-      <div class="lt-btn" data-tool="extendedLine" data-icon="extendedLine" title="Extended Line — ต่อขยายทั้งสองทาง"></div>
-      <div class="lt-btn" data-tool="horizontal" data-icon="horizontalLine" title="Horizontal Line"></div>
-      <div class="lt-btn" data-tool="horizontalRay" data-icon="horizontalRay" title="Horizontal Ray"></div>
-      <div class="lt-btn" data-tool="verticalLine" data-icon="verticalLine" title="Vertical Line"></div>
-      <div class="lt-btn" data-tool="crossLine" data-icon="crossLine" title="Cross Line"></div>
-      <div class="lt-btn" data-tool="fibonacci" data-icon="fibRetracement" title="Fibonacci Retracement"></div>
-      <div class="lt-btn" data-tool="gann" data-icon="gannBox" title="Gann / Pattern (เร็วๆ นี้)"></div>
-      <div class="lt-btn" data-tool="text" data-icon="textTool" title="Text"></div>
-      <div class="lt-btn" data-tool="emoji" data-icon="emoji" title="Icons / Emoji (เร็วๆ นี้)"></div>
-      <div class="lt-btn" data-tool="measure" data-icon="measure" title="Measure (วัดระยะ/ราคา)"></div>
-      <div class="lt-btn" data-tool="zoom" data-icon="zoom" title="Zoom (เร็วๆ นี้)"></div>
-      <div class="lt-btn" data-toggle="magnet" data-icon="magnet" title="Magnet — สแนปเข้าจุดแท่งเทียน"></div>
-      <div class="lt-btn" data-toggle="lock" data-icon="lock" title="Lock — ล็อกเส้นทั้งหมดไม่ให้แก้ไข"></div>
-      <div class="lt-btn" data-toggle="eye" data-icon="eye" title="Show / Hide drawings"></div>
-      <div class="lt-btn" data-action="trash" data-icon="trash" title="ลบเส้นที่เลือก (หรือลบทั้งหมดถ้าไม่ได้เลือก)"></div>
-    </div>
+    <div class="lt-group" id="sidebarToolsContainer"></div>
     <div class="lt-group">
       <div class="lt-btn" data-icon="star" title="Favorites"></div>
     </div>
@@ -171,6 +154,137 @@
         <input type="checkbox" id="lineShowInfoInput">
       </div>
     </div>
+
+    <!-- Panel ตั้งค่ารูปทรง: Rectangle / Circle / Ellipse / Triangle -->
+    <div class="line-panel" id="shapePanel">
+      <div class="line-panel-header">
+        <span>Shape Settings</span>
+        <span class="line-panel-close" id="shapePanelClose">✕</span>
+      </div>
+
+      <div class="line-panel-row">
+        <label>สีเส้นขอบ</label>
+        <input type="color" id="shapeBorderColorInput" value="#2962ff">
+      </div>
+
+      <div class="line-panel-row">
+        <label>สีพื้นหลัง</label>
+        <input type="color" id="shapeFillColorInput" value="#2962ff">
+      </div>
+
+      <div class="line-panel-row">
+        <label>ความโปร่งใสพื้น</label>
+        <input type="range" id="shapeFillOpacityInput" min="0" max="100" value="15">
+      </div>
+
+      <div class="line-panel-row">
+        <label>สไตล์เส้นขอบ</label>
+        <select id="shapeLineStyleInput">
+          <option value="solid">เส้นทึบ</option>
+          <option value="dashed">เส้นประ</option>
+          <option value="dotted">เส้นจุด</option>
+        </select>
+      </div>
+
+      <div class="line-panel-row" id="shapeExtendLeftRow">
+        <label>Extend Left</label>
+        <input type="checkbox" id="shapeExtendLeftInput">
+      </div>
+
+      <div class="line-panel-row" id="shapeExtendRightRow">
+        <label>Extend Right</label>
+        <input type="checkbox" id="shapeExtendRightInput">
+      </div>
+    </div>
+
+    <!-- Panel ตั้งค่า Long/Short Position -->
+    <div class="line-panel" id="positionPanel">
+      <div class="line-panel-header">
+        <span>Position Settings</span>
+        <span class="line-panel-close" id="positionPanelClose">✕</span>
+      </div>
+
+      <div class="line-panel-row">
+        <label>ทิศทาง</label>
+        <select id="positionDirectionInput">
+          <option value="long">Long</option>
+          <option value="short">Short</option>
+        </select>
+      </div>
+
+      <div class="line-panel-row">
+        <label>Entry Price</label>
+        <input type="number" id="positionEntryPriceInput" step="0.00001" style="width:90px;">
+      </div>
+
+      <div class="line-panel-row">
+        <label>Target Price</label>
+        <input type="number" id="positionTpPriceInput" step="0.00001" style="width:90px;">
+      </div>
+
+      <div class="line-panel-row">
+        <label>Stop Price</label>
+        <input type="number" id="positionSlPriceInput" step="0.00001" style="width:90px;">
+      </div>
+
+      <div class="line-panel-row">
+        <label>สี Take Profit</label>
+        <input type="color" id="positionTpColorInput" value="#26a69a">
+      </div>
+
+      <div class="line-panel-row">
+        <label>สี Stop Loss</label>
+        <input type="color" id="positionSlColorInput" value="#ef5350">
+      </div>
+
+      <div class="line-panel-row">
+        <label>ความโปร่งใสพื้น</label>
+        <input type="range" id="positionFillOpacityInput" min="0" max="100" value="18">
+      </div>
+
+      <div class="line-panel-row">
+        <label>ความกว้างกล่อง</label>
+        <input type="range" id="positionBoxWidthInput" min="5" max="50" value="18">
+      </div>
+
+      <div class="line-panel-row">
+        <label>เงินทุน (Account)</label>
+        <input type="number" id="positionAccountSizeInput" min="0" step="100" value="10000" style="width:80px;">
+      </div>
+
+      <div class="line-panel-row">
+        <label>โหมดความเสี่ยง</label>
+        <select id="positionRiskModeInput">
+          <option value="percent">% ของพอร์ต</option>
+          <option value="fixed">จำนวนเงินคงที่ ($)</option>
+        </select>
+      </div>
+
+      <div class="line-panel-row" id="positionRiskPercentRow">
+        <label>เสี่ยงต่อไม้ (%)</label>
+        <input type="number" id="positionRiskPercentInput" min="0.01" max="100" step="0.1" value="1" style="width:80px;">
+      </div>
+
+      <div class="line-panel-row" id="positionFixedRiskRow">
+        <label>เสี่ยงต่อไม้ ($)</label>
+        <input type="number" id="positionFixedRiskInput" min="0" step="10" value="100" style="width:80px;">
+      </div>
+
+      <div class="line-panel-row">
+        <label>Contract Multiplier</label>
+        <input type="number" id="positionContractMultiplierInput" min="0.0001" step="0.01" value="1" style="width:80px;">
+      </div>
+
+      <div class="line-panel-row">
+        <label>Lot Step</label>
+        <input type="number" id="positionLotStepInput" min="0" step="0.01" value="0.01" style="width:80px;">
+      </div>
+
+      <div class="line-panel-row">
+        <label>Max Leverage</label>
+        <input type="number" id="positionMaxLeverageInput" min="0" step="1" value="20" style="width:80px;">
+      </div>
+    </div>
   </div>
 
   <!-- ============ PRICE SCALE (ขวา) ============ -->
@@ -207,10 +321,12 @@
 
 </div>
 
-<!-- ลำดับการโหลดสำคัญ: icons -> chart -> drawings -> app -->
+<!-- ลำดับการโหลดสำคัญ: icons -> chart -> drawings -> sidebar-config -> sidebar -> app -->
 <script src="{{ url_for('static', filename='js/icons.js') }}"></script>
 <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
 <script src="{{ url_for('static', filename='js/drawings.js') }}"></script>
+<script src="{{ url_for('static', filename='js/sidebar-config.js') }}"></script>
+<script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

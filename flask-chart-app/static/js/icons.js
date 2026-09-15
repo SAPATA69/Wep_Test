@@ -20,6 +20,9 @@ const ICONS = {
   /* ---------- โลโก้ ---------- */
   logoMark: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="5"/></svg>`,
 
+  /* ---------- SIDEBAR: ลูกศรเล็กๆ บอกว่ามีเมนูย่อย ---------- */
+  caretRight: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 6l6 6-6 6z"/></svg>`,
+
   /* ---------- TOP TOOLBAR ---------- */
   plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>`,
 
@@ -55,7 +58,64 @@ const ICONS = {
 
   trendline: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/></svg>`,
 
+  ray: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L14 10"/><path d="M14 10l7-7M17 3h4v4" stroke-dasharray="0"/></svg>`,
+
+  extendedLine: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22L22 2" stroke-dasharray="3 2"/><path d="M7 17L17 7"/></svg>`,
+
   horizontalLine: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h18M3 14h12M3 20h8"/></svg>`,
+
+  horizontalRay: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><path d="M8 12h13"/></svg>`,
+
+  verticalLine: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/></svg>`,
+
+  crossLine: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg>`,
+
+  /* ---------- CURSORS (sub-menu) ---------- */
+  cursorCross: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/></svg>`,
+  cursorDot: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6" opacity="0.4"/></svg>`,
+  cursorEraser: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3l4 4-9.5 9.5H7L3 12.5z"/><path d="M7 16.5L3 12.5"/></svg>`,
+
+  /* ---------- TREND LINE FAMILY (เพิ่มเติม) ---------- */
+  trendAngle: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M4 20L18 6"/><path d="M4 14a6 6 0 0 1 6-6" stroke-dasharray="2 2"/></svg>`,
+  parallelChannel: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17L17 3"/><path d="M7 21L21 7"/></svg>`,
+  anchoredVWAP: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M12 3v4M12 17v4"/></svg>`,
+
+  /* ---------- GANN & FIBONACCI FAMILY (เพิ่มเติม) ---------- */
+  fibChannel: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 19L19 3M6 22L22 6M2 14L14 2"/></svg>`,
+  fibTimeZone: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3v18M9 3v18M14 3v18M19 3v18" opacity="0.7"/></svg>`,
+  fibCircles: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>`,
+  pitchfork: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L12 4"/><path d="M12 4l6 5M12 4l-2 7"/><path d="M18 9l3 11M10 11l-4 9"/></svg>`,
+  gannSquare: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18"/><path d="M3 3l18 18M21 3L3 21"/></svg>`,
+
+  /* ---------- GEOMETRIC SHAPES ---------- */
+  brush: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20c0-4 2-6 4-6s3 2 3 4-1 3-3 3-4-1-4-1z"/><path d="M11 14L19 4l2 2-10 10"/></svg>`,
+  rectangle: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="1"/></svg>`,
+  circleShape: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>`,
+  triangleShape: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4l9 16H3z"/></svg>`,
+  polyline: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18l5-9 5 4 8-9"/></svg>`,
+
+  /* ---------- ANNOTATIONS ---------- */
+  note: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h11l3 3v15H5z"/><path d="M16 3v3h3"/><path d="M8 12h8M8 16h5"/></svg>`,
+  callout: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 16l-2 4 5-4"/></svg>`,
+  priceLabel: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l8-8h9v9l-8 8z"/><circle cx="14" cy="9" r="1.4" fill="currentColor" stroke="none"/></svg>`,
+  arrowUp: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V6M6 11l6-6 6 6"/></svg>`,
+  arrowDown: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v14M6 13l6 6 6-6"/></svg>`,
+  arrowLeft: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12H6M11 6l-6 6 6 6"/></svg>`,
+  arrowRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h14M13 6l6 6-6 6"/></svg>`,
+  flagMark: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></svg>`,
+
+  /* ---------- PATTERNS ---------- */
+  patternWave: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l4-10 4 8 4-12 4 9 2-4"/></svg>`,
+  sineWave: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0"/></svg>`,
+
+  /* ---------- PREDICTION & MEASUREMENT ---------- */
+  longPosition: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/><path d="M4 4v6h6" transform="rotate(180 7 7)"/><rect x="14" y="4" width="6" height="4" fill="currentColor" stroke="none" opacity="0.5"/><rect x="4" y="16" width="6" height="4" fill="currentColor" stroke="none" opacity="0.5"/></svg>`,
+  shortPosition: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4L20 20"/><rect x="14" y="16" width="6" height="4" fill="currentColor" stroke="none" opacity="0.5"/><rect x="4" y="4" width="6" height="4" fill="currentColor" stroke="none" opacity="0.5"/></svg>`,
+  dateRange: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16"/><path d="M4 12l3-3M4 12l3 3M20 12l-3-3M20 12l-3 3"/></svg>`,
+  priceRange: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16"/><path d="M12 4l-3 3M12 4l3 3M12 20l-3-3M12 20l3-3"/></svg>`,
+  ghostFeed: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><path d="M4 20l4-4 4 3 4-6 4 3"/></svg>`,
+
+
 
   /* Fibonacci — จุดนี้แหละที่คุณน่าจะอยากมาแทนที่ก่อนเพื่อน
      ตอนนี้เป็นแค่เส้นแนวนอน 4 เส้น + เส้นทแยง (คร่าวๆ ไม่ใช่ของจริง) */
