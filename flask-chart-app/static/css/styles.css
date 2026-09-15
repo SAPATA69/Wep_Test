@@ -484,3 +484,42 @@ html, body {
 .bottom-right { display: flex; align-items: center; gap: 10px; }
 
 ::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ================================================================
+   FLOATING DRAWING TOOLBAR
+   ลอยเหนือ drawing ที่กำลังเลือกอยู่ (คุมตำแหน่ง/แสดง-ซ่อนด้วย JS ใน app.js
+   ผ่าน DrawingsModule.getSelectionAnchor()) ตอนนี้รองรับเฉพาะ Position Tool
+   ================================================================ */
+.drawing-toolbar {
+  display: none; /* เปิดด้วย JS ตอนเลือก drawing ที่รองรับ */
+  position: absolute;
+  top: 0; left: 0; /* ค่าจริงตั้งโดย JS ทุกครั้งที่ตำแหน่งเปลี่ยน */
+  align-items: center;
+  gap: 2px;
+  background: #161a22f5;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  z-index: 7; /* อยู่เหนือ drawingCanvas (z-index 2) และ panel อื่นๆ */
+  user-select: none;
+}
+.drawing-toolbar.visible { display: flex; }
+
+.dt-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 5px;
+  color: var(--text-dim); cursor: pointer; flex-shrink: 0;
+}
+.dt-btn:hover { background: #232833; color: var(--text); }
+.dt-btn svg { width: 15px; height: 15px; }
+.dt-btn.dt-active { background: var(--accent-blue-soft); color: var(--accent-blue); }
+
+.dt-grip { cursor: grab; }
+.dt-grip:active { cursor: grabbing; }
+
+.dt-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+
+.dt-fill-tp svg { color: var(--green); }
+.dt-fill-sl svg { color: var(--red); }
+.dt-fill-tp:hover, .dt-fill-sl:hover { background: #232833; }

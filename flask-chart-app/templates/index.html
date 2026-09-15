@@ -78,6 +78,24 @@
       <div class="replay-speed">1hr <span style="font-size:9px;">▾</span></div>
     </div>
 
+    <!-- Floating Drawing Toolbar: ลอยเหนือ drawing ที่กำลังเลือกอยู่ (ตอนนี้รองรับ Position เท่านั้น)
+         ตำแหน่ง default = กึ่งกลางด้านบนของกล่อง แต่ถ้าเคยลากย้าย (จับที่ ⠿ ซ้ายสุด) จะจำตำแหน่งล่าสุด
+         ไว้ใช้กับทุกกล่อง (แบบ global) ไม่ใช่จำแยกต่อกล่อง -->
+    <div class="drawing-toolbar" id="drawingToolbar">
+      <span class="dt-btn dt-grip" id="dtGripHandle" data-icon="dtGrip" title="ลากย้ายแถบเครื่องมือ"></span>
+      <span class="dt-sep"></span>
+      <span class="dt-btn" data-icon="layoutGrid" title="Template"></span>
+      <span class="dt-btn" data-icon="textTool" title="Text"></span>
+      <span class="dt-btn dt-fill-tp" data-icon="dtBucket" title="สี Take Profit"></span>
+      <span class="dt-btn dt-fill-sl" data-icon="dtBucket" title="สี Stop Loss"></span>
+      <span class="dt-btn" data-icon="dtImage" title="แนบรูปภาพ (เร็วๆ นี้)"></span>
+      <span class="dt-btn" data-icon="circleShape" title="รูปทรง (เร็วๆ นี้)"></span>
+      <span class="dt-btn" data-icon="dtAlarmPlus" title="ตั้งเตือน (เร็วๆ นี้)"></span>
+      <span class="dt-btn" id="dtLockBtn" data-icon="lock" title="ล็อกกล่องนี้"></span>
+      <span class="dt-btn" id="dtTrashBtn" data-icon="trash" title="ลบ"></span>
+      <span class="dt-btn" data-icon="dtMore" title="เพิ่มเติม (เร็วๆ นี้)"></span>
+    </div>
+
     <!-- Panel ตั้งค่า Fibonacci: แสดงเมื่อเลือกเส้น Fibonacci ด้วย cursor -->
     <div class="fib-panel" id="fibPanel">
       <div class="fib-panel-header">

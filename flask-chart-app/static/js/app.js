@@ -60,6 +60,72 @@ document.addEventListener('DOMContentLoaded', async () => {
   const fibAddLevelBtn = document.getElementById('fibAddLevelBtn');
   const fibPanelClose = document.getElementById('fibPanelClose');
 
+  // ---- 3.0.1) Floating Drawing Toolbar (ลอยเหนือ drawing ที่เลือกอยู่ — ตอนนี้รองรับ Position เท่านั้น) ----
+  const drawingToolbar = document.getElementById('drawingToolbar');
+  const dtGripHandle = document.getElementById('dtGripHandle');
+  const dtLockBtn = document.getElementById('dtLockBtn');
+  const dtTrashBtn = document.getElementById('dtTrashBtn');
+
+  // ระยะที่ผู้ใช้เคยลาก toolbar ไป (จำแบบ "เดียวกันทุกกล่อง" ตามที่ตกลงกันไว้
+  // ไม่ใช่จำแยกต่อกล่อง — ค่านี้จะรีเซ็ตกลับ 0 ตอน refresh หน้าเว็บใหม่)
+  let toolbarOffset = { dx: 0, dy: 0 };
+  let toolbarDragging = false;
+  let toolbarDragStartMouse = null;
+  let toolbarDragStartOffset = null;
+
+  // เรียกทุกครั้งที่ต้อง sync ตำแหน่ง/สถานะ toolbar ใหม่ (ตอนเลือก/ยกเลิกเลือก, ลากกล่องเสร็จ, ลาก toolbar เอง)
+  function updateDrawingToolbar(drawing) {
+    const anchor = DrawingsModule.getSelectionAnchor();
+    if (!drawing || !anchor) {
+      drawingToolbar.classList.remove('visible');
+      return;
+    }
+    const toolbarW = drawingToolbar.offsetWidth || 260;
+    const defaultLeft = anchor.x - toolbarW / 2;
+    const defaultTop = anchor.y - 40;
+    drawingToolbar.style.left = `${defaultLeft + toolbarOffset.dx}px`;
+    drawingToolbar.style.top = `${defaultTop + toolbarOffset.dy}px`;
+    drawingToolbar.classList.add('visible');
+    dtLockBtn.classList.toggle('dt-active', !!drawing.locked);
+  }
+
+  // ลากจับที่ ⠿ ซ้ายสุด -> ย้าย toolbar ได้อิสระ แล้วจำ offset ไว้ใช้ต่อกับทุกกล่องถัดไป
+  dtGripHandle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    toolbarDragging = true;
+    toolbarDragStartMouse = { x: e.clientX, y: e.clientY };
+    toolbarDragStartOffset = { ...toolbarOffset };
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!toolbarDragging) return;
+    toolbarOffset = {
+      dx: toolbarDragStartOffset.dx + (e.clientX - toolbarDragStartMouse.x),
+      dy: toolbarDragStartOffset.dy + (e.clientY - toolbarDragStartMouse.y),
+    };
+    updateDrawingToolbar(DrawingsModule.getSelectedDrawing());
+  });
+
+  window.addEventListener('mouseup', () => {
+    toolbarDragging = false;
+    // เผื่อกรณีลากปรับกล่อง Position เสร็จ (ไม่ใช่ลาก toolbar) -> ตำแหน่ง anchor เปลี่ยน ต้อง sync ใหม่
+    updateDrawingToolbar(DrawingsModule.getSelectedDrawing());
+  });
+
+  // ล็อกเฉพาะกล่องนี้กล่องเดียว (ต่างจากปุ่ม Lock All ที่ sidebar ซ้ายซึ่งล็อกทุกอันพร้อมกัน)
+  dtLockBtn.addEventListener('click', () => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (!d) return;
+    const newLocked = !d.locked;
+    DrawingsModule.setDrawingLocked(d.id, newLocked);
+    dtLockBtn.classList.toggle('dt-active', newLocked);
+  });
+
+  // ปุ่มถังขยะบน toolbar ลบได้เสมอแม้กล่องนั้นถูกล็อกอยู่ (ต่างจากปุ่ม Delete บนคีย์บอร์ดที่เคารพสถานะล็อก)
+  dtTrashBtn.addEventListener('click', () => {
+    DrawingsModule.removeSelected(true);
+  });
+
   // เปิด/ปิด panel ทุกครั้งที่การเลือกเส้นเปลี่ยน (มาจาก drawings.js)
   const LINE_FAMILY_TYPES = ['trendline', 'horizontal', 'horizontalRay', 'verticalLine', 'crossLine'];
   const SHAPE_TYPES = ['rectangle', 'ellipse', 'triangle'];
@@ -78,6 +144,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (drawing && drawing.type === 'position') {
       showPositionPanel(drawing);
     }
+
+    updateDrawingToolbar(drawing);
   });
 
   function showFibPanel(drawing) {
@@ -336,19 +404,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (d) DrawingsModule.setPositionDirection(d.id, e.target.value);
   });
 
-  positionEntryPriceInput.addEventListener('change', (e) => {
+  // ใช้ 'input' แทน 'change' เพื่อให้กล่องบนกราฟขยับตามทันทีทุกตัวอักษรที่พิมพ์
+  // (ไม่ต้องรอ blur ออกจากช่อง) — ตรงตาม requirement "Real-time update"
+  positionEntryPriceInput.addEventListener('input', (e) => {
     const d = DrawingsModule.getSelectedDrawing();
     const val = parseFloat(e.target.value);
     if (d && !Number.isNaN(val)) DrawingsModule.setPositionEntryPrice(d.id, val);
   });
 
-  positionTpPriceInput.addEventListener('change', (e) => {
+  positionTpPriceInput.addEventListener('input', (e) => {
     const d = DrawingsModule.getSelectedDrawing();
     const val = parseFloat(e.target.value);
     if (d && !Number.isNaN(val)) DrawingsModule.setPositionTpPrice(d.id, val);
   });
 
-  positionSlPriceInput.addEventListener('change', (e) => {
+  positionSlPriceInput.addEventListener('input', (e) => {
     const d = DrawingsModule.getSelectedDrawing();
     const val = parseFloat(e.target.value);
     if (d && !Number.isNaN(val)) DrawingsModule.setPositionSlPrice(d.id, val);

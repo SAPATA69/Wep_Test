@@ -232,8 +232,10 @@ const DrawingsModule = (() => {
     render();
   }
 
-  function removeSelected() {
+  function removeSelected(force = false) {
     if (selectedId) {
+      const d = drawings.find(x => x.id === selectedId);
+      if (d && d.locked && !force) return false; // ล็อกอยู่ + ไม่ได้บังคับ (เช่นกด Delete) -> ห้ามลบ
       removeDrawing(selectedId);
       selectedId = null;
       fireSelectionChange();
@@ -252,6 +254,36 @@ const DrawingsModule = (() => {
   function setVisible(v) { visible = v; render(); }
   function setLocked(v) { locked = v; }
   function setMagnet(v) { magnetOn = v; }
+
+  // ---- ล็อกเฉพาะกล่องนี้กล่องเดียว (จาก toolbar) ต่างจาก setLocked() ด้านบน
+  //      ที่เป็นสวิตช์ "ล็อกทุกอันพร้อมกัน" จาก sidebar ----
+  function setDrawingLocked(drawingId, v) {
+    const d = drawings.find(x => x.id === drawingId);
+    if (d) { d.locked = v; render(); }
+  }
+
+  function isDrawingLocked(drawingId) {
+    const d = drawings.find(x => x.id === drawingId);
+    return !!(d && d.locked);
+  }
+
+  // ---- จุดยึด (บนสุด กึ่งกลางแนวนอน) ของ drawing ที่เลือกอยู่ ----
+  // ใช้วางตำแหน่ง default ของ floating toolbar ใน app.js
+  // ตอนนี้รองรับเฉพาะ type 'position' เครื่องมืออื่นจะคืนค่า null (ยังไม่โชว์ toolbar)
+  function getSelectionAnchor() {
+    const d = getSelectedDrawing();
+    if (!d || !canvas) return null;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+
+    if (d.type === 'position') {
+      const entry = toPixel(d.points[0], w, h);
+      const tp = toPixel(d.points[1], w, h);
+      const boxWidthFrac = d.boxWidthFrac || POSITION_DEFAULT_BOX_WIDTH_FRAC;
+      const x2 = entry.x + boxWidthFrac * w;
+      return { x: (entry.x + x2) / 2, y: Math.min(entry.y, tp.y) };
+    }
+    return null;
+  }
 
   // ================================================================
   // LINE FAMILY SETTINGS (trendline, horizontal, horizontalRay, verticalLine, crossLine)
@@ -785,7 +817,7 @@ const DrawingsModule = (() => {
     // เช็ค handle (จุดปลายเส้น) ของเส้นที่เลือกอยู่ก่อน เผื่อจะลากปรับ
     if (selectedId && !locked) {
       const d = drawings.find(x => x.id === selectedId);
-      if (d) {
+      if (d && !d.locked) {
         const hIdx = hitTestHandle(d, pt);
         if (hIdx !== -1) {
           draggingHandle = { id: d.id, mode: 'point', index: hIdx };
@@ -797,7 +829,9 @@ const DrawingsModule = (() => {
     const hit = hitTestDrawing(pt);
     if (hit) {
       selectedId = hit.id;
-      if (!locked) {
+      // ล็อกทั้งหมด (sidebar) หรือล็อกเฉพาะกล่องนี้ (toolbar) ต่างก็ห้ามลากเหมือนกัน
+      // แต่ยังเลือกได้ปกติ (เพื่อให้ toolbar โผล่มาให้กดปลดล็อกได้)
+      if (!locked && !hit.locked) {
         draggingHandle = {
           id: hit.id,
           mode: 'move',
@@ -1284,13 +1318,15 @@ const DrawingsModule = (() => {
 
         const rewardPct = (m.targetDelta / entryPrice) * 100;
         const riskPct = (m.stopDelta / entryPrice) * 100;
+        const pipSize = estimatePipSize(entryPrice);
+        const tpPips = m.targetDelta / pipSize;
+        const slPips = m.stopDelta / pipSize;
 
-        ctx.fillStyle = tpColor;
-        ctx.fillText(`TP  ${tpPrice.toFixed(5)}  (+${rewardPct.toFixed(2)}%)`, x2 + 6, tp.y + 4);
-        ctx.fillStyle = slColor;
-        ctx.fillText(`SL  ${slPrice.toFixed(5)}  (-${riskPct.toFixed(2)}%)`, x2 + 6, sl.y + 4);
-        ctx.fillStyle = '#d1d4dc';
-        ctx.fillText(`Entry  ${entryPrice.toFixed(5)}`, x2 + 6, entry.y + 4);
+        // Price Tags: เส้นประสั้นๆ จากขอบกล่องไปทางขวา + กล่องราคากำกับปลายเส้น
+        // (ใช้แนวทางเดียวกับ drawPriceTag() ของเส้นแนวนอน แต่เริ่มจากขอบกล่อง Position แทนขอบ canvas)
+        drawPositionPriceTag(x2, tp.y, w, `${tpPrice.toFixed(5)}  +${rewardPct.toFixed(2)}%  ${tpPips.toFixed(1)}p`, tpColor, true);
+        drawPositionPriceTag(x2, sl.y, w, `${slPrice.toFixed(5)}  -${riskPct.toFixed(2)}%  ${slPips.toFixed(1)}p`, slColor, true);
+        drawPositionPriceTag(x2, entry.y, w, `Entry  ${entryPrice.toFixed(5)}`, '#4b5160', false);
 
         // ---- Info Label Card กลางกล่อง: RRR, Open P&L, Target Profit, Stop Loss, Quantity ----
         const dirLabel = d.direction === 'long' ? 'LONG' : 'SHORT';
@@ -1390,6 +1426,35 @@ const DrawingsModule = (() => {
     ctx.fillText(label, w - tw - 7, y + 4);
   }
 
+  // ---- Price Tag เฉพาะของ Position Tool: เส้นประจากขอบกล่อง (x2) ไปจนสุดขอบขวา
+  //      แล้ววาดกล่องราคาที่ปลายเส้น (ต่างจาก drawPriceTag ปกติที่ไม่มีเส้นประนำ
+  //      เพราะเส้นแนวนอนทั่วไปกินความกว้างเต็มจออยู่แล้ว ไม่ต้องมีเส้นนำสายตา) ----
+  function drawPositionPriceTag(x2, y, w, label, color, dark) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x2, y);
+    ctx.lineTo(w - 2, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.font = 'bold 11px sans-serif';
+    const tw = ctx.measureText(label).width;
+    const boxH = 18;
+    ctx.fillStyle = color;
+    ctx.fillRect(w - tw - 14, y - boxH / 2, tw + 12, boxH);
+    ctx.fillStyle = dark ? '#0c0e13' : '#fff';
+    ctx.fillText(label, w - tw - 8, y + 4);
+  }
+
+  // ---- ประมาณขนาด 1 pip จากระดับราคา (ใช้แสดงผลเท่านั้น ไม่ใช่มาตรฐานตายตัวของทุกตลาด) ----
+  // คู่เงินทั่วไป (ราคา < 20 เช่น AUDUSD 0.71xx) ใช้ 0.0001
+  // คู่ที่ราคาสูงกว่านั้น (เช่น USDJPY ~150, หุ้น/คริปโต) ใช้ 0.01
+  function estimatePipSize(price) {
+    return price >= 20 ? 0.01 : 0.0001;
+  }
+
   // Info Line: กล่องข้อความเล็กๆ กลางเส้นเทรนด์ บอกระยะราคา, จำนวนแท่ง, และองศาของเส้น
   function drawTrendlineInfo(p1, p2) {
     const priceStart = typeof ChartModule !== 'undefined' && ChartModule.priceAtY(p1.y);
@@ -1440,6 +1505,7 @@ const DrawingsModule = (() => {
     init, setTool, onToolChange, onSelectionChange, getSelectedDrawing,
     clearAll, removeSelected,
     setVisible, setLocked, setMagnet,
+    setDrawingLocked, isDrawingLocked, getSelectionAnchor,
     setLineColor, setLineWidth, setLineStyle, setLineExtend, setLineShowInfo,
     setShapeBorderColor, setShapeFillColor, setShapeFillOpacity, setShapeLineStyle, setShapeExtend,
     setPositionTpColor, setPositionSlColor, setPositionFillOpacity, setPositionBoxWidth, setPositionDirection,

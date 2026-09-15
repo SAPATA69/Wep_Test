@@ -199,4 +199,15 @@ const ICONS = {
 
   jumpNext: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4l10 8-10 8z"/><path d="M19 5v14"/></svg>`,
 
+  /* ---------- FLOATING DRAWING TOOLBAR (ลอยเหนือ drawing ที่เลือกอยู่) ---------- */
+  dtGrip: `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="7" r="1.6"/><circle cx="16" cy="7" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="17" r="1.6"/><circle cx="16" cy="17" r="1.6"/></svg>`,
+
+  dtBucket: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12l7-7 8 8-7 7z"/><path d="M4 12l7 7"/><path d="M18 15c1.2 1.2 1.2 2.8 0 4s-2.8 1.2-4 0"/></svg>`,
+
+  dtImage: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-5 4 4 3-3 4 4"/></svg>`,
+
+  dtAlarmPlus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="13" r="7"/><path d="M11 10v3l2 2"/><path d="M18 3v5M15.5 5.5h5"/></svg>`,
+
+  dtMore: `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>`,
+
 };
