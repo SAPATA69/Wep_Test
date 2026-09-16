@@ -35,6 +35,8 @@ const DrawingsModule = (() => {
   let idCounter = 1;
   let onToolChangeCallback = null;
   let onSelectionChangeCallback = null;
+  let onOpenSettingsCallback = null; // เรียกเฉพาะตอนดับเบิลคลิก หรือกดปุ่ม Settings บน floating toolbar
+                                       // (ต่างจาก onSelectionChange ที่ยิงทุกครั้งที่แค่ "เลือก" เฉยๆ)
 
   const COLOR_TRENDLINE = '#2962ff';
   const COLOR_HORIZONTAL = '#f5a623';
@@ -132,6 +134,7 @@ const DrawingsModule = (() => {
 
     canvas.addEventListener('mousedown', onMouseDown);
     canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('dblclick', onDoubleClick);
     window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('keydown', onKeyDown);
 
@@ -161,6 +164,9 @@ const DrawingsModule = (() => {
 
   function onToolChange(cb) { onToolChangeCallback = cb; }
   function onSelectionChange(cb) { onSelectionChangeCallback = cb; }
+  // เหมือน TradingView: "เลือก" (คลิกครั้งเดียว) โผล่แค่ floating toolbar
+  // ส่วน panel ตั้งค่าจะเปิดก็ต่อเมื่อดับเบิลคลิก หรือกดปุ่ม Settings บน toolbar เท่านั้น
+  function onOpenSettings(cb) { onOpenSettingsCallback = cb; }
 
   function getSelectedDrawing() {
     return drawings.find(d => d.id === selectedId) || null;
@@ -168,6 +174,10 @@ const DrawingsModule = (() => {
 
   function fireSelectionChange() {
     if (onSelectionChangeCallback) onSelectionChangeCallback(getSelectedDrawing());
+  }
+
+  function fireOpenSettings(drawing) {
+    if (onOpenSettingsCallback) onOpenSettingsCallback(drawing);
   }
 
   // ---- แปลงพิกัดเมาส์ (หน้าจอ) เป็นพิกัดบน canvas + สัดส่วน 0-1 ----
@@ -790,6 +800,20 @@ const DrawingsModule = (() => {
       }
       // ถ้าขยับน้อยกว่านี้ = แค่คลิกเบาๆ ไม่ได้ลาก -> ปล่อยให้รอคลิกจุดที่สองแยกตามปกติ (fallback)
     }
+  }
+
+  // ดับเบิลคลิกที่เส้น/รูปทรง (โหมด cursor เท่านั้น) -> เปิด panel ตั้งค่าของมันเลย
+  // เหมือน TradingView จริง: คลิกครั้งเดียวแค่เลือก (โผล่ floating toolbar อย่างเดียว)
+  // ต้องดับเบิลคลิก หรือกดปุ่ม Settings บน toolbar ถึงจะเปิด panel ตั้งค่า
+  function onDoubleClick(e) {
+    if (currentTool !== 'cursor') return;
+    const pt = toXY(e);
+    const hit = hitTestDrawing(pt);
+    if (!hit) return;
+    selectedId = hit.id;
+    fireSelectionChange();   // sync toolbar + ปิด panel เก่า (ถ้ามีค้างจากเส้นอื่น) ก่อน
+    fireOpenSettings(hit);   // แล้วค่อยเปิด panel ที่ตรงกับเส้นนี้
+    render();
   }
 
   function onKeyDown(e) {
@@ -1502,7 +1526,7 @@ const DrawingsModule = (() => {
   }
 
   return {
-    init, setTool, onToolChange, onSelectionChange, getSelectedDrawing,
+    init, setTool, onToolChange, onSelectionChange, onOpenSettings, getSelectedDrawing,
     clearAll, removeSelected,
     setVisible, setLocked, setMagnet,
     setDrawingLocked, isDrawingLocked, getSelectionAnchor,

@@ -489,9 +489,16 @@ html, body {
    FLOATING DRAWING TOOLBAR
    ลอยเหนือ drawing ที่กำลังเลือกอยู่ (คุมตำแหน่ง/แสดง-ซ่อนด้วย JS ใน app.js
    ผ่าน DrawingsModule.getSelectionAnchor()) ตอนนี้รองรับเฉพาะ Position Tool
+
+   หมายเหตุ (แก้บั๊ก): ซ่อนด้วย visibility/opacity แทน display:none
+   เพราะ display:none ทำให้ offsetWidth/offsetHeight อ่านได้ 0 เสมอตอนยังไม่โชว์
+   ซึ่ง app.js ต้องใช้ค่านี้ไปคำนวณตำแหน่งกึ่งกลางกล่องให้แม่นยำ
    ================================================================ */
 .drawing-toolbar {
-  display: none; /* เปิดด้วย JS ตอนเลือก drawing ที่รองรับ */
+  display: flex; /* คงเป็น flex ตลอด เพื่อให้วัดขนาดจริงได้แม้ยังไม่โชว์ */
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
   position: absolute;
   top: 0; left: 0; /* ค่าจริงตั้งโดย JS ทุกครั้งที่ตำแหน่งเปลี่ยน */
   align-items: center;
@@ -503,8 +510,9 @@ html, body {
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   z-index: 7; /* อยู่เหนือ drawingCanvas (z-index 2) และ panel อื่นๆ */
   user-select: none;
+  transition: opacity .06s ease;
 }
-.drawing-toolbar.visible { display: flex; }
+.drawing-toolbar.visible { visibility: visible; opacity: 1; pointer-events: auto; }
 
 .dt-btn {
   display: flex; align-items: center; justify-content: center;

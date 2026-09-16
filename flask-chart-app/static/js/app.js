@@ -62,9 +62,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ---- 3.0.1) Floating Drawing Toolbar (ลอยเหนือ drawing ที่เลือกอยู่ — ตอนนี้รองรับ Position เท่านั้น) ----
   const drawingToolbar = document.getElementById('drawingToolbar');
+  const chartAreaEl = document.getElementById('chartArea'); // ใช้ clamp ไม่ให้ toolbar หลุดขอบ
+  const drawingCanvasEl = document.getElementById('drawingCanvas');
   const dtGripHandle = document.getElementById('dtGripHandle');
   const dtLockBtn = document.getElementById('dtLockBtn');
   const dtTrashBtn = document.getElementById('dtTrashBtn');
+  const dtSettingsBtn = document.getElementById('dtSettingsBtn');
 
   // ระยะที่ผู้ใช้เคยลาก toolbar ไป (จำแบบ "เดียวกันทุกกล่อง" ตามที่ตกลงกันไว้
   // ไม่ใช่จำแยกต่อกล่อง — ค่านี้จะรีเซ็ตกลับ 0 ตอน refresh หน้าเว็บใหม่)
@@ -73,18 +76,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   let toolbarDragStartMouse = null;
   let toolbarDragStartOffset = null;
 
-  // เรียกทุกครั้งที่ต้อง sync ตำแหน่ง/สถานะ toolbar ใหม่ (ตอนเลือก/ยกเลิกเลือก, ลากกล่องเสร็จ, ลาก toolbar เอง)
+  const TOOLBAR_EDGE_MARGIN = 6; // ห่างขอบ chart-area อย่างน้อยเท่านี้ กันโดน overflow:hidden ตัดหาย
+
+  // เรียกทุกครั้งที่ต้อง sync ตำแหน่ง/สถานะ toolbar ใหม่
+  // (ตอนเลือก/ยกเลิกเลือก, ลากกล่อง/ลาก toolbar เอง, resize หน้าต่าง, แก้ผ่าน settings panel)
   function updateDrawingToolbar(drawing) {
     const anchor = DrawingsModule.getSelectionAnchor();
     if (!drawing || !anchor) {
       drawingToolbar.classList.remove('visible');
       return;
     }
-    const toolbarW = drawingToolbar.offsetWidth || 260;
+
+    // วัด offsetWidth/Height ได้ถูกต้องเสมอ เพราะ CSS ซ่อนด้วย visibility/opacity
+    // แทน display:none แล้ว (ดู styles.css) — ไม่ต้องเดา fallback ผิดๆ อีก
+    const toolbarW = drawingToolbar.offsetWidth;
+    const toolbarH = drawingToolbar.offsetHeight;
     const defaultLeft = anchor.x - toolbarW / 2;
     const defaultTop = anchor.y - 40;
-    drawingToolbar.style.left = `${defaultLeft + toolbarOffset.dx}px`;
-    drawingToolbar.style.top = `${defaultTop + toolbarOffset.dy}px`;
+
+    let left = defaultLeft + toolbarOffset.dx;
+    let top = defaultTop + toolbarOffset.dy;
+
+    // Clamp ไม่ให้ toolbar หลุดออกนอกขอบ chart-area (ที่ overflow:hidden อยู่)
+    // ทำแค่ตอน "วางจริง" เท่านั้น ไม่แก้ toolbarOffset ที่จำไว้ ไม่งั้นกล่องอื่นจะเพี้ยนตามไปด้วย
+    const rect = chartAreaEl.getBoundingClientRect();
+    const maxLeft = Math.max(TOOLBAR_EDGE_MARGIN, rect.width - toolbarW - TOOLBAR_EDGE_MARGIN);
+    const maxTop = Math.max(TOOLBAR_EDGE_MARGIN, rect.height - toolbarH - TOOLBAR_EDGE_MARGIN);
+    left = Math.min(Math.max(left, TOOLBAR_EDGE_MARGIN), maxLeft);
+    top = Math.min(Math.max(top, TOOLBAR_EDGE_MARGIN), maxTop);
+
+    drawingToolbar.style.left = `${left}px`;
+    drawingToolbar.style.top = `${top}px`;
     drawingToolbar.classList.add('visible');
     dtLockBtn.classList.toggle('dt-active', !!drawing.locked);
   }
@@ -112,6 +134,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateDrawingToolbar(DrawingsModule.getSelectedDrawing());
   });
 
+  // ลอยตามกล่อง Position แบบ real-time ระหว่างกำลังลากกล่องด้วยเมาส์ (เหมือน TradingView จริง)
+  // guard ด้วย toolbarDragging กันชนกับตอนกำลังลาก toolbar เอง (คนละโหมดกัน)
+  drawingCanvasEl.addEventListener('mousemove', () => {
+    if (toolbarDragging) return;
+    updateDrawingToolbar(DrawingsModule.getSelectedDrawing());
+  });
+
+  // Resize เบราว์เซอร์/พาเนล -> ตำแหน่งพิกเซลของกล่องเปลี่ยนตามสัดส่วน -> toolbar ต้อง sync ตามด้วย
+  window.addEventListener('resize', () => {
+    updateDrawingToolbar(DrawingsModule.getSelectedDrawing());
+  });
+
   // ล็อกเฉพาะกล่องนี้กล่องเดียว (ต่างจากปุ่ม Lock All ที่ sidebar ซ้ายซึ่งล็อกทุกอันพร้อมกัน)
   dtLockBtn.addEventListener('click', () => {
     const d = DrawingsModule.getSelectedDrawing();
@@ -126,26 +160,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     DrawingsModule.removeSelected(true);
   });
 
-  // เปิด/ปิด panel ทุกครั้งที่การเลือกเส้นเปลี่ยน (มาจาก drawings.js)
+  // ปุ่ม Settings (⚙) บน toolbar — ตอนนี้ toolbar ลอยรองรับแค่ Position เท่านั้น
+  // เลยเปิด Position Settings panel ของกล่องที่เลือกอยู่ตรงๆ ได้เลย (ไม่ต้องเช็ค type)
+  dtSettingsBtn.addEventListener('click', () => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d && d.type === 'position') showPositionPanel(d);
+  });
+
   const LINE_FAMILY_TYPES = ['trendline', 'horizontal', 'horizontalRay', 'verticalLine', 'crossLine'];
   const SHAPE_TYPES = ['rectangle', 'ellipse', 'triangle'];
+
+  // เหมือน TradingView: คลิกเลือกเฉยๆ (ครั้งเดียว) แค่ปิด panel เก่า + sync floating toolbar
+  // "ไม่" เปิด panel ตั้งค่าอัตโนมัติอีกต่อไป — ต้องดับเบิลคลิก หรือกดปุ่ม Settings ถึงจะเปิด
+  // (ดู DrawingsModule.onOpenSettings ด้านล่าง ซึ่งเป็นคนละ event กับอันนี้)
   DrawingsModule.onSelectionChange((drawing) => {
     fibPanel.classList.remove('visible');
     linePanel.classList.remove('visible');
     shapePanel.classList.remove('visible');
     positionPanel.classList.remove('visible');
 
-    if (drawing && drawing.type === 'fibonacci') {
+    updateDrawingToolbar(drawing);
+  });
+
+  // ดับเบิลคลิกที่เส้น/รูปทรงบนกราฟ (มาจาก drawings.js) -> เปิด panel ตั้งค่าที่ตรงกับชนิดนั้น
+  DrawingsModule.onOpenSettings((drawing) => {
+    if (!drawing) return;
+    if (drawing.type === 'fibonacci') {
       showFibPanel(drawing);
-    } else if (drawing && LINE_FAMILY_TYPES.includes(drawing.type)) {
+    } else if (LINE_FAMILY_TYPES.includes(drawing.type)) {
       showLinePanel(drawing);
-    } else if (drawing && SHAPE_TYPES.includes(drawing.type)) {
+    } else if (SHAPE_TYPES.includes(drawing.type)) {
       showShapePanel(drawing);
-    } else if (drawing && drawing.type === 'position') {
+    } else if (drawing.type === 'position') {
       showPositionPanel(drawing);
     }
-
-    updateDrawingToolbar(drawing);
   });
 
   function showFibPanel(drawing) {
@@ -401,7 +449,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   positionDirectionInput.addEventListener('change', (e) => {
     const d = DrawingsModule.getSelectedDrawing();
-    if (d) DrawingsModule.setPositionDirection(d.id, e.target.value);
+    if (d) {
+      DrawingsModule.setPositionDirection(d.id, e.target.value);
+      updateDrawingToolbar(d); // สลับ Long/Short สลับ TP/SL -> กล่องพลิกด้าน -> anchor เปลี่ยน
+    }
   });
 
   // ใช้ 'input' แทน 'change' เพื่อให้กล่องบนกราฟขยับตามทันทีทุกตัวอักษรที่พิมพ์
@@ -409,19 +460,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   positionEntryPriceInput.addEventListener('input', (e) => {
     const d = DrawingsModule.getSelectedDrawing();
     const val = parseFloat(e.target.value);
-    if (d && !Number.isNaN(val)) DrawingsModule.setPositionEntryPrice(d.id, val);
+    if (d && !Number.isNaN(val)) {
+      DrawingsModule.setPositionEntryPrice(d.id, val);
+      updateDrawingToolbar(d); // ราคา Entry ขยับ -> กล่องขยับ -> ต้อง sync toolbar ตาม
+    }
   });
 
   positionTpPriceInput.addEventListener('input', (e) => {
     const d = DrawingsModule.getSelectedDrawing();
     const val = parseFloat(e.target.value);
-    if (d && !Number.isNaN(val)) DrawingsModule.setPositionTpPrice(d.id, val);
+    if (d && !Number.isNaN(val)) {
+      DrawingsModule.setPositionTpPrice(d.id, val);
+      updateDrawingToolbar(d);
+    }
   });
 
   positionSlPriceInput.addEventListener('input', (e) => {
     const d = DrawingsModule.getSelectedDrawing();
     const val = parseFloat(e.target.value);
-    if (d && !Number.isNaN(val)) DrawingsModule.setPositionSlPrice(d.id, val);
+    if (d && !Number.isNaN(val)) {
+      DrawingsModule.setPositionSlPrice(d.id, val);
+      updateDrawingToolbar(d);
+    }
   });
 
   positionTpColorInput.addEventListener('input', (e) => {
@@ -441,7 +501,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   positionBoxWidthInput.addEventListener('input', (e) => {
     const d = DrawingsModule.getSelectedDrawing();
-    if (d) DrawingsModule.setPositionBoxWidth(d.id, parseInt(e.target.value, 10) / 100);
+    if (d) {
+      DrawingsModule.setPositionBoxWidth(d.id, parseInt(e.target.value, 10) / 100);
+      updateDrawingToolbar(d); // ความกว้างกล่องเปลี่ยน -> จุดกึ่งกลาง (anchor) เปลี่ยนด้วย
+    }
   });
 
   positionAccountSizeInput.addEventListener('input', (e) => {
