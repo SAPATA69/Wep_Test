@@ -28,6 +28,8 @@ const DrawingsModule = (() => {
   let previewFibLevels = null; // ชุดระดับ Fibo ที่ใช้ตอน preview ระหว่างลาก (แคชไว้ ไม่สร้างใหม่ทุกเฟรม)
   const DRAG_THRESHOLD_PX = 4; // ขยับเกินนี้ถือว่าเป็นการลาก ปล่อยเมาส์แล้ววาดเสร็จเลย (พฤติกรรมแบบ TradingView)
   let selectedId = null;       // id ของเส้นที่กำลังถูกเลือกอยู่
+  let hoveredId = null;        // id ของกล่อง Position ที่เมาส์ชี้ค้างอยู่ (ใช้โชว์กล่อง Open PnL ชั่วคราว
+                                // แบบเดียวกับ TradingView แม้จะยังไม่ได้คลิกเลือกก็ตาม)
   let draggingHandle = null;   // ข้อมูลตอนกำลังลาก handle/ย้ายเส้น
   let visible = true;          // true = แสดงเส้นทั้งหมด, false = ซ่อน
   let locked = false;          // true = ห้ามแก้ไข/ย้ายเส้น
@@ -134,6 +136,7 @@ const DrawingsModule = (() => {
 
     canvas.addEventListener('mousedown', onMouseDown);
     canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseleave', onMouseLeaveCanvas);
     canvas.addEventListener('dblclick', onDoubleClick);
     window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('keydown', onKeyDown);
@@ -700,6 +703,9 @@ const DrawingsModule = (() => {
         contractMultiplier: POSITION_DEFAULT_CONTRACT_MULTIPLIER,
         lotStep: POSITION_DEFAULT_LOT_STEP,
         maxLeverage: POSITION_DEFAULT_MAX_LEVERAGE,
+        // แท่งเทียนที่ตอนคลิกเปิดออเดอร์ (ใช้เป็นจุดเริ่มของเส้นประราคาปัจจุบัน — ดู drawOne)
+        entryBarIndex: (typeof ChartModule !== 'undefined' && typeof ChartModule.barIndexForX === 'function')
+          ? ChartModule.barIndexForX(pt.x) : null,
       });
       selectAndReturnToCursor(d);
       return;
@@ -778,6 +784,26 @@ const DrawingsModule = (() => {
     }
     if (tempPoints.length >= 1) {
       previewPoint = { xFrac: pt.xFrac, yFrac: pt.yFrac };
+      render();
+      return;
+    }
+
+    // Hover เฉพาะกล่อง Position: ชี้เมาส์ค้าง (ไม่ต้องคลิก) ก็ให้โชว์กล่อง Open PnL/Qty/R:R
+    // ชั่วคราวเหมือน TradingView (ดู drawOne -> d.type==='position', เงื่อนไข selected || hovered)
+    if (currentTool === 'cursor') {
+      const hit = hitTestDrawing(pt);
+      const newHoverId = (hit && hit.type === 'position') ? hit.id : null;
+      if (newHoverId !== hoveredId) {
+        hoveredId = newHoverId;
+        render();
+      }
+    }
+  }
+
+  // เมาส์ออกจากกรอบ canvas -> เคลียร์ hover ไว้ ไม่งั้นกล่อง Open PnL จะค้างโชว์อยู่
+  function onMouseLeaveCanvas() {
+    if (hoveredId !== null) {
+      hoveredId = null;
       render();
     }
   }
@@ -1051,7 +1077,7 @@ const DrawingsModule = (() => {
     ctx.clearRect(0, 0, w, h);
     if (!visible) return;
 
-    drawings.forEach(d => drawOne(d, w, h, d.id === selectedId));
+    drawings.forEach(d => drawOne(d, w, h, d.id === selectedId, false, d.id === hoveredId));
 
     // พรีวิวรูประหว่างกำลังวาด (คลิกไปแล้วอย่างน้อย 1 จุด ยังไม่ครบ รอจุดสุดท้าย)
     // ใช้ได้ทั้งเครื่องมือ 2 จุด (เส้น/fibonacci/rectangle/ellipse) และ 3 จุด (triangle)
@@ -1095,7 +1121,7 @@ const DrawingsModule = (() => {
     });
   }
 
-  function drawOne(d, w, h, selected = false, isPreview = false) {
+  function drawOne(d, w, h, selected = false, isPreview = false, hovered = false) {
     ctx.save();
     ctx.globalAlpha = isPreview ? 0.55 : 1;
 
@@ -1299,12 +1325,47 @@ const DrawingsModule = (() => {
       const tpColor = d.tpColor || POSITION_TP_COLOR;
       const slColor = d.slColor || POSITION_SL_COLOR;
       const fillOpacity = d.fillOpacity != null ? d.fillOpacity : POSITION_DEFAULT_FILL_OPACITY;
+      const REACHED_FILL_OPACITY = Math.min(1, fillOpacity * 3.2); // ส่วนที่ราคาวิ่งไปถึงแล้ว: ทึบ/เข้มกว่าอย่างชัดเจน
 
-      // โซน Take Profit (เขียว) และ Stop Loss (แดง)
-      ctx.fillStyle = hexToRgba(tpColor, fillOpacity);
-      ctx.fillRect(x1, Math.min(entry.y, tp.y), x2 - x1, Math.abs(tp.y - entry.y));
-      ctx.fillStyle = hexToRgba(slColor, fillOpacity);
-      ctx.fillRect(x1, Math.min(entry.y, sl.y), x2 - x1, Math.abs(sl.y - entry.y));
+      // ราคาปัจจุบัน (close ของแท่งล่าสุด) — ใช้แบ่งกล่องเป็น "ไปถึงแล้ว" (ทึบ) vs "ยังไปไม่ถึง" (โปร่งแสง)
+      // แบบ real-time เหมือน TradingView แทนที่จะเป็นสีทึบเดียวตลอดกล่องแบบเดิม
+      let currentPrice = null, currentY = null;
+      if (typeof ChartModule !== 'undefined' && typeof ChartModule.getCurrentPrice === 'function') {
+        currentPrice = ChartModule.getCurrentPrice();
+        if (currentPrice != null) currentY = ChartModule.yForPrice(currentPrice);
+      }
+
+      const tpZoneTop = Math.min(entry.y, tp.y), tpZoneBottom = Math.max(entry.y, tp.y);
+      const slZoneTop = Math.min(entry.y, sl.y), slZoneBottom = Math.max(entry.y, sl.y);
+      // ฝั่งไหนคือฝั่งกำไร (เทียบตำแหน่งพิกเซล ไม่ hardcode long/short — รองรับทั้งสองทิศทาง)
+      const tpIsAbove = tp.y < entry.y;
+      const currentAboveEntry = currentY != null ? currentY < entry.y : null;
+      const inProfitZone = currentY != null && currentY !== entry.y && currentAboveEntry === tpIsAbove;
+      const inLossZone = currentY != null && currentY !== entry.y && !inProfitZone;
+
+      // โซน Take Profit (เขียว)
+      if (inProfitZone) {
+        const reachedY = Math.max(tpZoneTop, Math.min(tpZoneBottom, currentY)); // clamp กันราคาวิ่งเลย TP ไปไกล
+        ctx.fillStyle = hexToRgba(tpColor, REACHED_FILL_OPACITY);
+        ctx.fillRect(x1, Math.min(entry.y, reachedY), x2 - x1, Math.abs(reachedY - entry.y));
+        ctx.fillStyle = hexToRgba(tpColor, fillOpacity);
+        ctx.fillRect(x1, Math.min(reachedY, tp.y), x2 - x1, Math.abs(tp.y - reachedY));
+      } else {
+        ctx.fillStyle = hexToRgba(tpColor, fillOpacity);
+        ctx.fillRect(x1, tpZoneTop, x2 - x1, tpZoneBottom - tpZoneTop);
+      }
+
+      // โซน Stop Loss (แดง)
+      if (inLossZone) {
+        const reachedY = Math.max(slZoneTop, Math.min(slZoneBottom, currentY));
+        ctx.fillStyle = hexToRgba(slColor, REACHED_FILL_OPACITY);
+        ctx.fillRect(x1, Math.min(entry.y, reachedY), x2 - x1, Math.abs(reachedY - entry.y));
+        ctx.fillStyle = hexToRgba(slColor, fillOpacity);
+        ctx.fillRect(x1, Math.min(reachedY, sl.y), x2 - x1, Math.abs(sl.y - reachedY));
+      } else {
+        ctx.fillStyle = hexToRgba(slColor, fillOpacity);
+        ctx.fillRect(x1, slZoneTop, x2 - x1, slZoneBottom - slZoneTop);
+      }
 
       // เส้นขอบบน (TP), เส้น Entry (กลาง, เส้นทึบสีกลาง), เส้นขอบล่าง (SL)
       ctx.lineWidth = selected ? 2 : 1.4;
@@ -1315,19 +1376,34 @@ const DrawingsModule = (() => {
       ctx.strokeStyle = '#d1d4dc';
       ctx.beginPath(); ctx.moveTo(x1, entry.y); ctx.lineTo(x2, entry.y); ctx.stroke();
 
+      // เส้นประราคาปัจจุบัน: วิ่งตั้งแต่แท่งเทียนที่เข้าออเดอร์ (entryBarIndex) ถึงแท่งปัจจุบัน (แท่งล่าสุด)
+      if (currentY != null && d.entryBarIndex != null
+          && typeof ChartModule !== 'undefined'
+          && typeof ChartModule.xForBarIndex === 'function'
+          && typeof ChartModule.getLastIndex === 'function') {
+        const xStart = ChartModule.xForBarIndex(d.entryBarIndex);
+        const lastIdx = ChartModule.getLastIndex();
+        const xEnd = lastIdx != null ? ChartModule.xForBarIndex(lastIdx) : null;
+        if (xStart != null && xEnd != null) {
+          const lineColor = currentY === entry.y ? '#d1d4dc' : (inProfitZone ? tpColor : slColor);
+          ctx.strokeStyle = lineColor;
+          ctx.lineWidth = 1.4;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.moveTo(Math.min(xStart, xEnd), currentY);
+          ctx.lineTo(Math.max(xStart, xEnd), currentY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
       const entryPrice = typeof ChartModule !== 'undefined' ? ChartModule.priceAtY(entry.y) : null;
       const tpPrice = typeof ChartModule !== 'undefined' ? ChartModule.priceAtY(tp.y) : null;
       const slPrice = typeof ChartModule !== 'undefined' ? ChartModule.priceAtY(sl.y) : null;
 
       ctx.font = '11px sans-serif';
       if (entryPrice != null && tpPrice != null && slPrice != null) {
-        // ราคาปัจจุบัน (แท่งล่าสุด) สำหรับคำนวณ Open P&L
-        let currentPrice = null;
-        if (typeof ChartModule !== 'undefined' && typeof ChartModule.getCandles === 'function') {
-          const candles = ChartModule.getCandles();
-          if (candles && candles.length) currentPrice = candles[candles.length - 1].close;
-        }
-
+        // currentPrice คำนวณไว้แล้วด้านบน (ใช้แบ่งโซนกล่อง + เส้นประราคาปัจจุบัน) เอามาใช้ต่อกับ Open P&L ตรงนี้ได้เลย
         const m = computePositionMetrics({
           entryPrice, tpPrice, slPrice, direction: d.direction,
           accountSize: d.accountSize != null ? d.accountSize : POSITION_DEFAULT_ACCOUNT_SIZE,
@@ -1346,44 +1422,61 @@ const DrawingsModule = (() => {
         const tpPips = m.targetDelta / pipSize;
         const slPips = m.stopDelta / pipSize;
 
-        // Price Tags: เส้นประสั้นๆ จากขอบกล่องไปทางขวา + กล่องราคากำกับปลายเส้น
-        // (ใช้แนวทางเดียวกับ drawPriceTag() ของเส้นแนวนอน แต่เริ่มจากขอบกล่อง Position แทนขอบ canvas)
-        drawPositionPriceTag(x2, tp.y, w, `${tpPrice.toFixed(5)}  +${rewardPct.toFixed(2)}%  ${tpPips.toFixed(1)}p`, tpColor, true);
-        drawPositionPriceTag(x2, sl.y, w, `${slPrice.toFixed(5)}  -${riskPct.toFixed(2)}%  ${slPips.toFixed(1)}p`, slColor, true);
+        // ป้าย Target / Stop: ติดอยู่กับเส้นขอบกล่องเอง เหมือน TradingView (ไม่ใช่ลากไปโผล่ที่ขอบขวาสุดแบบเดิม)
+        // วางป้ายไว้ "ด้านนอก" กล่องเสมอ (ฝั่งตรงข้ามกับเส้น Entry) ไม่ว่าจะเป็น Long หรือ Short
+        const tpAbove = tp.y < entry.y; // โซน TP อยู่เหนือ entry (Long ปกติ) -> ป้ายแปะเหนือเส้น TP
+        const slAbove = sl.y < entry.y; // โซน SL อยู่เหนือ entry (Short ปกติ) -> ป้ายแปะเหนือเส้น SL
+        drawPositionZoneLabel(
+          x1, tp.y,
+          `Target: ${m.targetDelta.toFixed(5)} (${rewardPct.toFixed(2)}%) ${tpPips.toFixed(1)}, Amount: ${m.profitAmount.toFixed(2)}`,
+          tpColor, tpAbove
+        );
+        drawPositionZoneLabel(
+          x1, sl.y,
+          `Stop: ${m.stopDelta.toFixed(5)} (${riskPct.toFixed(2)}%) ${slPips.toFixed(1)}, Amount: ${m.lossAmount.toFixed(2)}`,
+          slColor, slAbove
+        );
         drawPositionPriceTag(x2, entry.y, w, `Entry  ${entryPrice.toFixed(5)}`, '#4b5160', false);
 
-        // ---- Info Label Card กลางกล่อง: RRR, Open P&L, Target Profit, Stop Loss, Quantity ----
-        const dirLabel = d.direction === 'long' ? 'LONG' : 'SHORT';
-        const rrrText = m.rrr != null ? `1:${m.rrr.toFixed(2)}` : 'N/A';
-        const pnlText = m.openPnl != null ? `${m.openPnl >= 0 ? '+' : ''}$${m.openPnl.toFixed(2)}` : '—';
+        // ---- Info Label Card: Open PnL / Qty / R:R ----
+        // เหมือน TradingView: (1) โชว์เฉพาะตอน selected หรือ hover เท่านั้น ไม่ใช่โชว์ค้างตลอด
+        //                      (2) วางชิดเส้น Entry อยู่ในโซนที่ "ใหญ่กว่า" ระหว่าง TP (reward) กับ SL (risk)
+        //                          — เท่ากันพอดี (tie) ให้ถือว่าอยู่โซน SL (ดูอ้างอิงจากภาพที่ผู้ใช้ส่งมา)
+        if (selected || hovered) {
+          const rrrText = m.rrr != null ? m.rrr.toFixed(2) : 'N/A';
+          const pnlText = m.openPnl != null ? `${m.openPnl >= 0 ? '+' : ''}$${m.openPnl.toFixed(2)}` : '—';
 
-        const cardLines = [
-          `${dirLabel}   R:R ${rrrText}`,
-          `Qty ${m.quantity.toFixed(2)}   Open P&L ${pnlText}`,
-          `Target +$${m.profitAmount.toFixed(2)} (+${m.profitPercent.toFixed(2)}%)`,
-          `Stop  -$${m.lossAmount.toFixed(2)} (-${m.lossPercent.toFixed(2)}%)`,
-        ];
-        if (m.marginWarning) cardLines.push('⚠ Insufficient Margin');
+          const cardLines = [
+            `Open PnL ${pnlText}   Qty ${m.quantity.toFixed(2)}`,
+            `Risk/reward ratio ${rrrText}`,
+          ];
+          if (m.marginWarning) cardLines.push('⚠ Insufficient Margin');
 
-        ctx.font = '10px sans-serif';
-        const cardWidth = Math.max(...cardLines.map(l => ctx.measureText(l).width)) + 14;
-        const lineHeight = 14;
-        const cardHeight = cardLines.length * lineHeight + 8;
-        const midX = (x1 + x2) / 2;
-        const cardTop = entry.y - cardHeight - 10;
+          ctx.font = '10px sans-serif';
+          const cardWidth = Math.max(...cardLines.map(l => ctx.measureText(l).width)) + 14;
+          const lineHeight = 14;
+          const cardHeight = cardLines.length * lineHeight + 8;
+          const midX = (x1 + x2) / 2;
+          const gap = 10;
 
-        ctx.fillStyle = m.marginWarning ? '#3a1f1f' : '#1a1e27ee';
-        ctx.fillRect(midX - cardWidth / 2, cardTop, cardWidth, cardHeight);
-        ctx.strokeStyle = m.marginWarning ? '#ef5350' : '#2e333d';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(midX - cardWidth / 2, cardTop, cardWidth, cardHeight);
+          // เลือกโซนที่จะแปะกล่อง: reward (targetDelta) โตกว่า risk (stopDelta) เคร่งครัด -> โซน TP
+          // ไม่งั้น (รวมถึงเท่ากันพอดี) -> โซน SL
+          const anchorY = (m.targetDelta > m.stopDelta) ? tp.y : sl.y;
+          const cardTop = (anchorY < entry.y)
+            ? entry.y - cardHeight - gap   // โซนอยู่เหนือเส้น entry -> กล่องแปะขอบล่างติดเส้น entry ขยายขึ้น
+            : entry.y + gap;               // โซนอยู่ใต้เส้น entry -> กล่องแปะขอบบนติดเส้น entry ขยายลง
 
-        cardLines.forEach((line, i) => {
-          ctx.fillStyle = (i === 0)
-            ? (d.direction === 'long' ? tpColor : slColor)
-            : (line.startsWith('⚠') ? '#ef5350' : '#d1d4dc');
-          ctx.fillText(line, midX - cardWidth / 2 + 7, cardTop + 8 + lineHeight * i + 9);
-        });
+          ctx.fillStyle = m.marginWarning ? '#3a1f1f' : '#1a1e27ee';
+          ctx.fillRect(midX - cardWidth / 2, cardTop, cardWidth, cardHeight);
+          ctx.strokeStyle = m.marginWarning ? '#ef5350' : '#2e333d';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(midX - cardWidth / 2, cardTop, cardWidth, cardHeight);
+
+          cardLines.forEach((line, i) => {
+            ctx.fillStyle = line.startsWith('⚠') ? '#ef5350' : '#d1d4dc';
+            ctx.fillText(line, midX - cardWidth / 2 + 7, cardTop + 8 + lineHeight * i + 9);
+          });
+        }
       }
 
       if (selected) {
@@ -1448,6 +1541,19 @@ const DrawingsModule = (() => {
     ctx.fillRect(w - tw - 12, y - 9, tw + 10, 18);
     ctx.fillStyle = '#0c0e13';
     ctx.fillText(label, w - tw - 7, y + 4);
+  }
+
+  // ---- ป้าย Target / Stop ของ Position Tool: กล่องสีทึบแปะติดเส้นขอบกล่อง (Target อยู่เหนือเส้น TP,
+  //      Stop อยู่ใต้เส้น SL) ชิดขอบซ้ายกล่อง (x1) เหมือน TradingView — ไม่ใช่กล่องราคาที่ลากไปขอบขวาสุด
+  function drawPositionZoneLabel(x1, y, label, color, above) {
+    ctx.font = 'bold 11px sans-serif';
+    const tw = ctx.measureText(label).width;
+    const boxH = 18;
+    const boxY = above ? (y - boxH) : y;
+    ctx.fillStyle = color;
+    ctx.fillRect(x1, boxY, tw + 12, boxH);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, x1 + 6, boxY + boxH - 5);
   }
 
   // ---- Price Tag เฉพาะของ Position Tool: เส้นประจากขอบกล่อง (x2) ไปจนสุดขอบขวา

@@ -125,6 +125,38 @@ const ChartModule = (() => {
     return ((lastTopPrice - price) / range) * h;
   }
 
+  // ---- แปลงพิกเซล y กลับเป็น bar index (ใช้สูตรเดียวกับตอนวาดแท่งเทียนใน draw() เป๊ะๆ
+  //      เพื่อให้ตำแหน่งตรงกับแท่งเทียนจริงบนจอเสมอ) ----
+  function xForBarIndex(i) {
+    if (!canvas || !candles.length) return null;
+    const w = canvas.clientWidth;
+    const marginLeft = 6, marginRight = 6;
+    const usableW = w - marginLeft - marginRight;
+    const candleW = usableW / candles.length;
+    return marginLeft + i * candleW + candleW / 2;
+  }
+
+  // ---- สมการย้อนกลับของ xForBarIndex: รับพิกเซล x คืน bar index ที่ใกล้ที่สุด (clamp ในช่วงแท่งที่มีอยู่) ----
+  function barIndexForX(xPixel) {
+    if (!canvas || !candles.length) return null;
+    const w = canvas.clientWidth;
+    const marginLeft = 6, marginRight = 6;
+    const usableW = w - marginLeft - marginRight;
+    const candleW = usableW / candles.length;
+    const idx = Math.round((xPixel - marginLeft - candleW / 2) / candleW);
+    return Math.max(0, Math.min(candles.length - 1, idx));
+  }
+
+  // ---- bar index ของแท่งเทียนล่าสุด (แท่ง "ปัจจุบัน") ----
+  function getLastIndex() {
+    return candles.length ? candles.length - 1 : null;
+  }
+
+  // ---- ราคาปัจจุบัน = close ของแท่งเทียนล่าสุด ----
+  function getCurrentPrice() {
+    return candles.length ? candles[candles.length - 1].close : null;
+  }
+
   // ---- 4) วาด tick ราคาบน price scale (คอลัมน์ขวา) ----
   function renderPriceScale(top, bottom, lastCandle) {
     priceScaleEl.innerHTML = '';
@@ -188,5 +220,5 @@ const ChartModule = (() => {
     return candles;
   }
 
-  return { init, draw, getCandles, loadCandles, priceAtY, yForPrice };
+  return { init, draw, getCandles, loadCandles, priceAtY, yForPrice, xForBarIndex, barIndexForX, getLastIndex, getCurrentPrice };
 })();
