@@ -136,15 +136,16 @@ const ChartModule = (() => {
     return marginLeft + i * candleW + candleW / 2;
   }
 
-  // ---- สมการย้อนกลับของ xForBarIndex: รับพิกเซล x คืน bar index ที่ใกล้ที่สุด (clamp ในช่วงแท่งที่มีอยู่) ----
+  // ---- สมการย้อนกลับของ xForBarIndex: รับพิกเซล x คืน bar index (ไม่ clamp ในช่วงแท่งที่มีอยู่จริง
+  //      เพื่อให้ตำแหน่งที่คลิก "เลยแท่งสุดท้าย" ไปทางขวา ยังคำนวณเป็น index > แท่งสุดท้ายได้ตามจริง
+  //      จำเป็นสำหรับ Position tool: ต้องรู้ว่าวางไว้ "ในอนาคต" (ยังไม่มีแท่งเทียนรองรับ) หรือย้อนอดีต) ----
   function barIndexForX(xPixel) {
     if (!canvas || !candles.length) return null;
     const w = canvas.clientWidth;
     const marginLeft = 6, marginRight = 6;
     const usableW = w - marginLeft - marginRight;
     const candleW = usableW / candles.length;
-    const idx = Math.round((xPixel - marginLeft - candleW / 2) / candleW);
-    return Math.max(0, Math.min(candles.length - 1, idx));
+    return Math.round((xPixel - marginLeft - candleW / 2) / candleW);
   }
 
   // ---- bar index ของแท่งเทียนล่าสุด (แท่ง "ปัจจุบัน") ----

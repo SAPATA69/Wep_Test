@@ -1330,18 +1330,28 @@ const DrawingsModule = (() => {
       // ราคาปัจจุบัน (close ของแท่งล่าสุด) — ใช้แบ่งกล่องเป็น "ไปถึงแล้ว" (ทึบ) vs "ยังไปไม่ถึง" (โปร่งแสง)
       // แบบ real-time เหมือน TradingView แทนที่จะเป็นสีทึบเดียวตลอดกล่องแบบเดิม
       let currentPrice = null, currentY = null;
+      let lastBarIdx = null;
       if (typeof ChartModule !== 'undefined' && typeof ChartModule.getCurrentPrice === 'function') {
         currentPrice = ChartModule.getCurrentPrice();
         if (currentPrice != null) currentY = ChartModule.yForPrice(currentPrice);
       }
+      if (typeof ChartModule !== 'undefined' && typeof ChartModule.getLastIndex === 'function') {
+        lastBarIdx = ChartModule.getLastIndex();
+      }
+
+      // กล่องนี้ "โดนแท่งเทียนแล้ว" หรือยัง: ต้องมีแท่งเทียนอยู่ ณ หรือหลังจุด Entry แล้วเท่านั้น
+      // ถึงจะรู้ได้ว่าตอนนี้ "กำไรหรือขาดทุน" — ถ้าวางกล่องไว้ล่วงหน้าในโซนอนาคต (entryBarIndex เลยแท่งสุดท้ายไปแล้ว)
+      // ให้โชว์แค่สีเรียบๆ เหมือนเดิม ยังไม่ต้องขึ้นสถานะไปก่อน (ตรงกับ TradingView ในรูปที่ผู้ใช้ส่งมา)
+      const hasBeenReached = (d.entryBarIndex == null) || (lastBarIdx == null) || (d.entryBarIndex <= lastBarIdx);
+      const canSplit = hasBeenReached && currentY != null;
 
       const tpZoneTop = Math.min(entry.y, tp.y), tpZoneBottom = Math.max(entry.y, tp.y);
       const slZoneTop = Math.min(entry.y, sl.y), slZoneBottom = Math.max(entry.y, sl.y);
       // ฝั่งไหนคือฝั่งกำไร (เทียบตำแหน่งพิกเซล ไม่ hardcode long/short — รองรับทั้งสองทิศทาง)
       const tpIsAbove = tp.y < entry.y;
-      const currentAboveEntry = currentY != null ? currentY < entry.y : null;
-      const inProfitZone = currentY != null && currentY !== entry.y && currentAboveEntry === tpIsAbove;
-      const inLossZone = currentY != null && currentY !== entry.y && !inProfitZone;
+      const currentAboveEntry = canSplit ? currentY < entry.y : null;
+      const inProfitZone = canSplit && currentY !== entry.y && currentAboveEntry === tpIsAbove;
+      const inLossZone = canSplit && currentY !== entry.y && !inProfitZone;
 
       // โซน Take Profit (เขียว)
       if (inProfitZone) {
@@ -1377,13 +1387,12 @@ const DrawingsModule = (() => {
       ctx.beginPath(); ctx.moveTo(x1, entry.y); ctx.lineTo(x2, entry.y); ctx.stroke();
 
       // เส้นประราคาปัจจุบัน: วิ่งตั้งแต่แท่งเทียนที่เข้าออเดอร์ (entryBarIndex) ถึงแท่งปัจจุบัน (แท่งล่าสุด)
-      if (currentY != null && d.entryBarIndex != null
+      // โชว์เฉพาะตอน canSplit (กล่องโดนแท่งเทียนแล้วเท่านั้น) เหมือนกับเงื่อนไขแบ่งสีด้านบน
+      if (canSplit && d.entryBarIndex != null
           && typeof ChartModule !== 'undefined'
-          && typeof ChartModule.xForBarIndex === 'function'
-          && typeof ChartModule.getLastIndex === 'function') {
-        const xStart = ChartModule.xForBarIndex(d.entryBarIndex);
-        const lastIdx = ChartModule.getLastIndex();
-        const xEnd = lastIdx != null ? ChartModule.xForBarIndex(lastIdx) : null;
+          && typeof ChartModule.xForBarIndex === 'function') {
+        const xStart = ChartModule.xForBarIndex(Math.max(0, d.entryBarIndex));
+        const xEnd = lastBarIdx != null ? ChartModule.xForBarIndex(lastBarIdx) : null;
         if (xStart != null && xEnd != null) {
           const lineColor = currentY === entry.y ? '#d1d4dc' : (inProfitZone ? tpColor : slColor);
           ctx.strokeStyle = lineColor;
