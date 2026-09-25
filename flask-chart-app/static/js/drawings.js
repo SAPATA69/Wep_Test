@@ -30,6 +30,7 @@ const DrawingsModule = (() => {
   let selectedId = null;       // id ของเส้นที่กำลังถูกเลือกอยู่
   let hoveredId = null;        // id ของกล่อง Position ที่เมาส์ชี้ค้างอยู่ (ใช้โชว์กล่อง Open PnL ชั่วคราว
                                 // แบบเดียวกับ TradingView แม้จะยังไม่ได้คลิกเลือกก็ตาม)
+  let lastPointerPoint = null; // จุดล่าสุดของ pointer ใช้ตรวจว่าเมาส์ยังอยู่บน Position ที่เลือกหรือไม่
   let draggingHandle = null;   // ข้อมูลตอนกำลังลาก handle/ย้ายเส้น
   let visible = true;          // true = แสดงเส้นทั้งหมด, false = ซ่อน
   let locked = false;          // true = ห้ามแก้ไข/ย้ายเส้น
@@ -621,6 +622,7 @@ const DrawingsModule = (() => {
   // ================================================================
   function onMouseDown(e) {
     const pt = toXY(e);
+    lastPointerPoint = pt;
 
     if (currentTool === 'cursor') {
       handleSelectMouseDown(pt);
@@ -769,7 +771,9 @@ const DrawingsModule = (() => {
   // (พฤติกรรม default ของ TradingView; ในอนาคตจะมีปุ่ม "Stay in Drawing Mode"
   //  ให้ผู้ใช้เลือกค้างโหมดวาดไว้แทนพฤติกรรมนี้ได้)
   function selectAndReturnToCursor(drawing) {
-    selectedId = drawing.id;
+    // Position ที่เพิ่งวางยังไม่ถือว่า Active จนกว่าผู้ใช้จะคลิกหรือเอาเมาส์ชี้
+    // เพื่อให้ป้ายข้อมูลซ่อนตามค่าเริ่มต้นเหมือน TradingView
+    selectedId = drawing.type === 'position' ? null : drawing.id;
     setTool('cursor');
     if (onToolChangeCallback) onToolChangeCallback('cursor');
     fireSelectionChange();
@@ -777,6 +781,7 @@ const DrawingsModule = (() => {
 
   function onMouseMove(e) {
     const pt = toXY(e);
+    lastPointerPoint = pt;
 
     if (draggingHandle) {
       handleDragMove(pt);
@@ -802,6 +807,7 @@ const DrawingsModule = (() => {
 
   // เมาส์ออกจากกรอบ canvas -> เคลียร์ hover ไว้ ไม่งั้นกล่อง Open PnL จะค้างโชว์อยู่
   function onMouseLeaveCanvas() {
+    lastPointerPoint = null;
     if (hoveredId !== null) {
       hoveredId = null;
       render();
@@ -1344,6 +1350,11 @@ const DrawingsModule = (() => {
       // ให้โชว์แค่สีเรียบๆ เหมือนเดิม ยังไม่ต้องขึ้นสถานะไปก่อน (ตรงกับ TradingView ในรูปที่ผู้ใช้ส่งมา)
       const hasBeenReached = (d.entryBarIndex == null) || (lastBarIdx == null) || (d.entryBarIndex <= lastBarIdx);
       const canSplit = hasBeenReached && currentY != null;
+      const selectedPointerIsOverPosition = selected && lastPointerPoint && isPointNearDrawing(d, lastPointerPoint);
+      const showPositionLabels = hovered || selectedPointerIsOverPosition;
+      // ก่อนกราฟวิ่งมาถึงแท่ง Entry ให้ถือว่า Position ยังเป็นสถานะรอ
+      // จึงห้ามใช้ราคาปัจจุบันคำนวณ Open P&L หรือแสดงข้อมูลที่อ้างอิง current price
+      const effectiveCurrentPrice = canSplit ? currentPrice : null;
 
       const tpZoneTop = Math.min(entry.y, tp.y), tpZoneBottom = Math.max(entry.y, tp.y);
       const slZoneTop = Math.min(entry.y, sl.y), slZoneBottom = Math.max(entry.y, sl.y);
@@ -1422,7 +1433,7 @@ const DrawingsModule = (() => {
           contractMultiplier: d.contractMultiplier != null ? d.contractMultiplier : POSITION_DEFAULT_CONTRACT_MULTIPLIER,
           lotStep: d.lotStep != null ? d.lotStep : POSITION_DEFAULT_LOT_STEP,
           maxLeverage: d.maxLeverage != null ? d.maxLeverage : POSITION_DEFAULT_MAX_LEVERAGE,
-          currentPrice,
+          currentPrice: effectiveCurrentPrice,
         });
 
         const rewardPct = (m.targetDelta / entryPrice) * 100;
@@ -1431,21 +1442,24 @@ const DrawingsModule = (() => {
         const tpPips = m.targetDelta / pipSize;
         const slPips = m.stopDelta / pipSize;
 
-        // ป้าย Target / Stop: ติดอยู่กับเส้นขอบกล่องเอง เหมือน TradingView (ไม่ใช่ลากไปโผล่ที่ขอบขวาสุดแบบเดิม)
-        // วางป้ายไว้ "ด้านนอก" กล่องเสมอ (ฝั่งตรงข้ามกับเส้น Entry) ไม่ว่าจะเป็น Long หรือ Short
-        const tpAbove = tp.y < entry.y; // โซน TP อยู่เหนือ entry (Long ปกติ) -> ป้ายแปะเหนือเส้น TP
-        const slAbove = sl.y < entry.y; // โซน SL อยู่เหนือ entry (Short ปกติ) -> ป้ายแปะเหนือเส้น SL
-        drawPositionZoneLabel(
-          x1, tp.y,
-          `Target: ${m.targetDelta.toFixed(5)} (${rewardPct.toFixed(2)}%) ${tpPips.toFixed(1)}, Amount: ${m.profitAmount.toFixed(2)}`,
-          tpColor, tpAbove
-        );
-        drawPositionZoneLabel(
-          x1, sl.y,
-          `Stop: ${m.stopDelta.toFixed(5)} (${riskPct.toFixed(2)}%) ${slPips.toFixed(1)}, Amount: ${m.lossAmount.toFixed(2)}`,
-          slColor, slAbove
-        );
-        drawPositionPriceTag(x2, entry.y, w, `Entry  ${entryPrice.toFixed(5)}`, '#4b5160', false);
+        // ป้าย Target / Stop / Entry เป็นข้อมูลของ Position เช่นเดียวกับ Info Box
+        // จึงแสดงเฉพาะตอนเลือกหรือเอาเมาส์ชี้ ไม่วาดค้างไว้ในสถานะปกติ
+        if (showPositionLabels) {
+          // วางป้ายไว้นอกกล่องเสมอ (ฝั่งตรงข้ามกับเส้น Entry) ไม่ว่าจะเป็น Long หรือ Short
+          const tpAbove = tp.y < entry.y;
+          const slAbove = sl.y < entry.y;
+          drawPositionZoneLabel(
+            x1, tp.y,
+            `Target: ${m.targetDelta.toFixed(5)} (${rewardPct.toFixed(2)}%) ${tpPips.toFixed(1)}, Amount: ${m.profitAmount.toFixed(2)}`,
+            tpColor, tpAbove
+          );
+          drawPositionZoneLabel(
+            x1, sl.y,
+            `Stop: ${m.stopDelta.toFixed(5)} (${riskPct.toFixed(2)}%) ${slPips.toFixed(1)}, Amount: ${m.lossAmount.toFixed(2)}`,
+            slColor, slAbove
+          );
+          drawPositionPriceTag(x2, entry.y, w, `Entry  ${entryPrice.toFixed(5)}`, '#4b5160', false);
+        }
 
         // ---- Info Label Card: Open PnL / Qty / R:R ----
         // เหมือน TradingView: (1) โชว์เฉพาะตอน selected หรือ hover เท่านั้น ไม่ใช่โชว์ค้างตลอด
@@ -1456,6 +1470,7 @@ const DrawingsModule = (() => {
           const pnlText = m.openPnl != null ? `${m.openPnl >= 0 ? '+' : ''}$${m.openPnl.toFixed(2)}` : '—';
 
           const cardLines = [
+            ...(hasBeenReached ? [] : ['Waiting for entry']),
             `Open PnL ${pnlText}   Qty ${m.quantity.toFixed(2)}`,
             `Risk/reward ratio ${rrrText}`,
           ];
