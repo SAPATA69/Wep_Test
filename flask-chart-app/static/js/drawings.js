@@ -1362,16 +1362,11 @@ const DrawingsModule = (() => {
         lastBarIdx = ChartModule.getLastIndex();
       }
 
-      // กล่องจะเริ่มประเมินราคาก็ต่อเมื่อแท่งล่าสุดเดินทางมาถึง entryBarIndex แล้ว
-      // กรณีวางย้อนหลัง (entryBarIndex <= lastBarIdx) จะเริ่มนับจากแท่งย้อนหลังนั้นทันที
-      const progress = getPositionProgressState(d.entryBarIndex, lastBarIdx);
-      const hasBeenReached = progress.hasBeenReached;
-      const canSplit = progress.canSplit && currentY != null;
-      const selectedPointerIsOverPosition = selected && lastPointerPoint && isPointNearDrawing(d, lastPointerPoint);
-      const showPositionLabels = hovered || selectedPointerIsOverPosition;
-      // ก่อนกราฟวิ่งมาถึงแท่ง Entry ให้ถือว่า Position ยังเป็นสถานะรอ
-      // จึงห้ามใช้ราคาปัจจุบันคำนวณ Open P&L หรือแสดงข้อมูลที่อ้างอิง current price
-      const effectiveCurrentPrice = canSplit ? currentPrice : null;
+      // กล่องนี้ "โดนแท่งเทียนแล้ว" หรือยัง: ต้องมีแท่งเทียนอยู่ ณ หรือหลังจุด Entry แล้วเท่านั้น
+      // ถึงจะรู้ได้ว่าตอนนี้ "กำไรหรือขาดทุน" — ถ้าวางกล่องไว้ล่วงหน้าในโซนอนาคต (entryBarIndex เลยแท่งสุดท้ายไปแล้ว)
+      // ให้โชว์แค่สีเรียบๆ เหมือนเดิม ยังไม่ต้องขึ้นสถานะไปก่อน (ตรงกับ TradingView ในรูปที่ผู้ใช้ส่งมา)
+      const hasBeenReached = (d.entryBarIndex == null) || (lastBarIdx == null) || (d.entryBarIndex <= lastBarIdx);
+      const canSplit = hasBeenReached && currentY != null;
 
       const tpZoneTop = Math.min(entry.y, tp.y), tpZoneBottom = Math.max(entry.y, tp.y);
       const slZoneTop = Math.min(entry.y, sl.y), slZoneBottom = Math.max(entry.y, sl.y);
