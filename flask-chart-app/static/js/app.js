@@ -412,6 +412,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const positionContractMultiplierInput = document.getElementById('positionContractMultiplierInput');
   const positionLotStepInput = document.getElementById('positionLotStepInput');
   const positionMaxLeverageInput = document.getElementById('positionMaxLeverageInput');
+  const positionShowStatsAlwaysInput = document.getElementById('positionShowStatsAlwaysInput');
   const positionPanelClose = document.getElementById('positionPanelClose');
 
   function showPositionPanel(drawing) {
@@ -445,6 +446,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     positionContractMultiplierInput.value = drawing.contractMultiplier != null ? drawing.contractMultiplier : 1;
     positionLotStepInput.value = drawing.lotStep != null ? drawing.lotStep : 0.01;
     positionMaxLeverageInput.value = drawing.maxLeverage != null ? drawing.maxLeverage : 20;
+    positionShowStatsAlwaysInput.checked = !!drawing.showStatsAlways;
   }
 
   positionDirectionInput.addEventListener('change', (e) => {
@@ -549,6 +551,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const d = DrawingsModule.getSelectedDrawing();
     const val = parseFloat(e.target.value);
     if (d && !Number.isNaN(val)) DrawingsModule.setPositionMaxLeverage(d.id, val);
+  });
+  positionShowStatsAlwaysInput.addEventListener('change', (e) => {
+    const d = DrawingsModule.getSelectedDrawing();
+    if (d) DrawingsModule.setPositionStatsAlways(d.id, e.target.checked);
   });
 
   positionPanelClose.addEventListener('click', () => {
