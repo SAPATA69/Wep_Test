@@ -305,9 +305,11 @@ const DrawingsModule = (() => {
     if (d.type === 'position') {
       const entry = toPixel(d.points[0], w, h);
       const tp = toPixel(d.points[1], w, h);
+      const sl = toPixel(d.points[2], w, h);
       const boxWidthFrac = d.boxWidthFrac || POSITION_DEFAULT_BOX_WIDTH_FRAC;
       const x2 = entry.x + boxWidthFrac * w;
-      return { x: (entry.x + x2) / 2, y: Math.min(entry.y, tp.y) };
+      // ใช้จุดทั้งสามเพื่อหา top ของกล่อง: Short มี SL อยู่ด้านบน ไม่ใช่ TP
+      return { x: (entry.x + x2) / 2, y: Math.min(entry.y, tp.y, sl.y) };
     }
     return null;
   }
@@ -788,9 +790,13 @@ const DrawingsModule = (() => {
   // (พฤติกรรม default ของ TradingView; ในอนาคตจะมีปุ่ม "Stay in Drawing Mode"
   //  ให้ผู้ใช้เลือกค้างโหมดวาดไว้แทนพฤติกรรมนี้ได้)
   function selectAndReturnToCursor(drawing) {
-    // Position ที่เพิ่งวางยังไม่ถือว่า Active จนกว่าผู้ใช้จะคลิกหรือเอาเมาส์ชี้
-    // เพื่อให้ป้ายข้อมูลซ่อนตามค่าเริ่มต้นเหมือน TradingView
-    selectedId = drawing.type === 'position' ? null : drawing.id;
+    // Position ที่เพิ่งวางเป็น Active ทันที เพื่อให้ Toolbar และ Handles แสดงเหมือน TradingView
+    // แต่รีเซ็ต pointer state เพื่อไม่ให้ Info Box โผล่ค้างเพียงเพราะจุดที่ใช้วางเครื่องมือ
+    selectedId = drawing.id;
+    if (drawing.type === 'position') {
+      hoveredId = null;
+      lastPointerPoint = null;
+    }
     setTool('cursor');
     if (onToolChangeCallback) onToolChangeCallback('cursor');
     fireSelectionChange();
@@ -1362,11 +1368,16 @@ const DrawingsModule = (() => {
         lastBarIdx = ChartModule.getLastIndex();
       }
 
-      // กล่องนี้ "โดนแท่งเทียนแล้ว" หรือยัง: ต้องมีแท่งเทียนอยู่ ณ หรือหลังจุด Entry แล้วเท่านั้น
-      // ถึงจะรู้ได้ว่าตอนนี้ "กำไรหรือขาดทุน" — ถ้าวางกล่องไว้ล่วงหน้าในโซนอนาคต (entryBarIndex เลยแท่งสุดท้ายไปแล้ว)
-      // ให้โชว์แค่สีเรียบๆ เหมือนเดิม ยังไม่ต้องขึ้นสถานะไปก่อน (ตรงกับ TradingView ในรูปที่ผู้ใช้ส่งมา)
-      const hasBeenReached = (d.entryBarIndex == null) || (lastBarIdx == null) || (d.entryBarIndex <= lastBarIdx);
-      const canSplit = hasBeenReached && currentY != null;
+      // กล่องจะเริ่มประเมินราคาก็ต่อเมื่อแท่งล่าสุดเดินทางมาถึง entryBarIndex แล้ว
+      // กรณีวางย้อนหลัง (entryBarIndex <= lastBarIdx) จะเริ่มนับจากแท่งย้อนหลังนั้นทันที
+      const progress = getPositionProgressState(d.entryBarIndex, lastBarIdx);
+      const hasBeenReached = progress.hasBeenReached;
+      const canSplit = progress.canSplit && currentY != null;
+      const selectedPointerIsOverPosition = selected && lastPointerPoint && isPointNearDrawing(d, lastPointerPoint);
+      const showPositionLabels = hovered || selectedPointerIsOverPosition;
+      // ก่อนกราฟวิ่งมาถึงแท่ง Entry ให้ถือว่า Position ยังเป็นสถานะรอ
+      // จึงห้ามใช้ราคาปัจจุบันคำนวณ Open P&L หรือแสดงข้อมูลที่อ้างอิง current price
+      const effectiveCurrentPrice = canSplit ? currentPrice : null;
 
       const tpZoneTop = Math.min(entry.y, tp.y), tpZoneBottom = Math.max(entry.y, tp.y);
       const slZoneTop = Math.min(entry.y, sl.y), slZoneBottom = Math.max(entry.y, sl.y);

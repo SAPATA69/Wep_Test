@@ -78,8 +78,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const TOOLBAR_EDGE_MARGIN = 6; // ห่างขอบ chart-area อย่างน้อยเท่านี้ กันโดน overflow:hidden ตัดหาย
 
-  // เรียกทุกครั้งที่ต้อง sync ตำแหน่ง/สถานะ toolbar ใหม่
-  // (ตอนเลือก/ยกเลิกเลือก, ลากกล่อง/ลาก toolbar เอง, resize หน้าต่าง, แก้ผ่าน settings panel)
+  // Sync ตอนเลือก/ยกเลิกเลือก Position, ลาก Toolbar เอง หรือ resize หน้าต่าง
+  // หลังจากวางแล้ว Toolbar จะไม่ขยับตามการลากหรือการแก้ไข Position
   function updateDrawingToolbar(drawing) {
     const anchor = DrawingsModule.getSelectionAnchor();
     if (!drawing || !anchor) {
@@ -130,18 +130,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   window.addEventListener('mouseup', () => {
     toolbarDragging = false;
-    // เผื่อกรณีลากปรับกล่อง Position เสร็จ (ไม่ใช่ลาก toolbar) -> ตำแหน่ง anchor เปลี่ยน ต้อง sync ใหม่
-    updateDrawingToolbar(DrawingsModule.getSelectedDrawing());
   });
 
-  // ลอยตามกล่อง Position แบบ real-time ระหว่างกำลังลากกล่องด้วยเมาส์ (เหมือน TradingView จริง)
-  // guard ด้วย toolbarDragging กันชนกับตอนกำลังลาก toolbar เอง (คนละโหมดกัน)
-  drawingCanvasEl.addEventListener('mousemove', () => {
-    if (toolbarDragging) return;
-    updateDrawingToolbar(DrawingsModule.getSelectedDrawing());
-  });
-
-  // Resize เบราว์เซอร์/พาเนล -> ตำแหน่งพิกเซลของกล่องเปลี่ยนตามสัดส่วน -> toolbar ต้อง sync ตามด้วย
   window.addEventListener('resize', () => {
     updateDrawingToolbar(DrawingsModule.getSelectedDrawing());
   });
@@ -453,7 +443,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const d = DrawingsModule.getSelectedDrawing();
     if (d) {
       DrawingsModule.setPositionDirection(d.id, e.target.value);
-      updateDrawingToolbar(d); // สลับ Long/Short สลับ TP/SL -> กล่องพลิกด้าน -> anchor เปลี่ยน
     }
   });
 
@@ -464,7 +453,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const val = parseFloat(e.target.value);
     if (d && !Number.isNaN(val)) {
       DrawingsModule.setPositionEntryPrice(d.id, val);
-      updateDrawingToolbar(d); // ราคา Entry ขยับ -> กล่องขยับ -> ต้อง sync toolbar ตาม
     }
   });
 
@@ -473,7 +461,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const val = parseFloat(e.target.value);
     if (d && !Number.isNaN(val)) {
       DrawingsModule.setPositionTpPrice(d.id, val);
-      updateDrawingToolbar(d);
     }
   });
 
@@ -482,7 +469,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const val = parseFloat(e.target.value);
     if (d && !Number.isNaN(val)) {
       DrawingsModule.setPositionSlPrice(d.id, val);
-      updateDrawingToolbar(d);
     }
   });
 
@@ -505,7 +491,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const d = DrawingsModule.getSelectedDrawing();
     if (d) {
       DrawingsModule.setPositionBoxWidth(d.id, parseInt(e.target.value, 10) / 100);
-      updateDrawingToolbar(d); // ความกว้างกล่องเปลี่ยน -> จุดกึ่งกลาง (anchor) เปลี่ยนด้วย
     }
   });
 
